@@ -6,7 +6,7 @@
 |---|---|
 | App version | 1.0.0 |
 | Build number | 1 locally; Codemagic increments from App Store Connect |
-| Commit hash | Pending final repository commit; record the resulting `git rev-parse HEAD` here/at CI |
+| Release source commit | `e19cfc804c37316db0d501eba4be77f37449b127` |
 | Flutter | 3.47.0 stable, revision `4cf2416426` |
 | Dart | 3.13.0 stable |
 | iOS deployment target | 16.0 |
