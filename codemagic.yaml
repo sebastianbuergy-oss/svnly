@@ -1,0 +1,118 @@
+definitions:
+  environment: &common_environment
+    flutter: stable
+    xcode: latest
+    cocoapods: default
+    vars:
+      BUNDLE_ID: ch.sebastianbuergy.svnly
+      APP_ENV: production
+      LEGAL_BASE_URL: https://svnly.sebastian-buergy.chatgpt.site
+    groups:
+      - svnly_production
+  checks: &quality_checks
+    - name: Resolve Flutter dependencies
+      script: flutter pub get
+    - name: Verify deterministic challenge corpus
+      script: |
+        dart run tool/generate_challenges.dart
+        git diff --exit-code -- assets/data/challenges.json supabase/seed.sql
+    - name: Formatting gate
+      script: dart format --output=none --set-exit-if-changed lib test tool
+    - name: Static analysis gate
+      script: flutter analyze lib test tool
+    - name: Unit and widget tests
+      script: mkdir -p build/test-results && flutter test --machine > build/test-results/flutter.json
+      test_report: build/test-results/flutter.json
+    - name: Dependency inventory and outdated audit
+      script: |
+        flutter pub deps --style=compact > build/dependencies.txt
+        flutter pub outdated --no-dev-dependencies
+    - name: Secret scan
+      script: |
+        if git grep -nEI '(sb_secret_[A-Za-z0-9_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|sk_live_[A-Za-z0-9]|AKIA[0-9A-Z]{16})' -- ':!codemagic.yaml' ':!.env.example'; then
+          echo "Potential secret detected"
+          exit 1
+        fi
+    - name: SQL and RLS contract checks
+      script: dart run tool/verify_backend_contract.dart
+
+workflows:
+  svnly-tests:
+    name: SVNLY quality gates
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment: *common_environment
+    scripts: *quality_checks
+    artifacts:
+      - build/test-results/**
+      - build/dependencies.txt
+
+  svnly-ios-release:
+    name: SVNLY iOS TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: svnly-app-store-connect
+    environment:
+      <<: *common_environment
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: ch.sebastianbuergy.svnly
+    scripts:
+      - name: Resolve Flutter dependencies
+        script: flutter pub get
+      - name: Verify deterministic challenge corpus
+        script: |
+          dart run tool/generate_challenges.dart
+          git diff --exit-code -- assets/data/challenges.json supabase/seed.sql
+      - name: Formatting gate
+        script: dart format --output=none --set-exit-if-changed lib test tool
+      - name: Static analysis gate
+        script: flutter analyze lib test tool
+      - name: Unit and widget tests
+        script: mkdir -p build/test-results && flutter test --machine > build/test-results/flutter.json
+        test_report: build/test-results/flutter.json
+      - name: Dependency inventory and outdated audit
+        script: |
+          flutter pub deps --style=compact > build/dependencies.txt
+          flutter pub outdated --no-dev-dependencies
+      - name: Secret scan
+        script: |
+          if git grep -nEI '(sb_secret_[A-Za-z0-9_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|sk_live_[A-Za-z0-9]|AKIA[0-9A-Z]{16})' -- ':!codemagic.yaml' ':!.env.example'; then
+            echo "Potential secret detected"
+            exit 1
+          fi
+      - name: SQL and RLS contract checks
+        script: dart run tool/verify_backend_contract.dart
+      - name: Fetch App Store signing files
+        script: app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+      - name: Configure signing keychain
+        script: |
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Set automatic App Store build number
+        script: |
+          LATEST_BUILD=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID")
+          echo "SVNLY_BUILD_NUMBER=$((LATEST_BUILD + 1))" >> "$CM_ENV"
+      - name: Build signed IPA
+        script: |
+          flutter build ipa --release \
+            --build-number="$SVNLY_BUILD_NUMBER" \
+            --dart-define=APP_ENV="$APP_ENV" \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define=REVENUECAT_IOS_API_KEY="$REVENUECAT_IOS_API_KEY" \
+            --dart-define=LEGAL_BASE_URL="$LEGAL_BASE_URL" \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/archive/*.xcarchive
+      - build/test-results/**
+      - build/dependencies.txt
+      - flutter_drive.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        expire_build_submitted_for_review: false

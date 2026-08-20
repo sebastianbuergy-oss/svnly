@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">SVNLY app icon source</title>
+  <desc id="desc">Neon lime geometric seven with a play triangle on a deep navy square.</desc>
+  <rect width="1024" height="1024" fill="#05070A"/>
+  <path fill="#E8FF00" d="M218 198h600v154L512 830H330l306-478H218z"/>
+  <path fill="#E8FF00" d="M270 414a14 14 0 0 1 21-12l138 88a14 14 0 0 1 0 24l-138 88a14 14 0 0 1-21-12z"/>
+</svg>
