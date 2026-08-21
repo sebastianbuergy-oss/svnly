@@ -183,8 +183,10 @@ workflows:
           - certificate: gosafehome-distribution
             environment_variable: SVNLY_DISTRIBUTION_CERTIFICATE_PATH
     scripts:
-      - name: Resolve Flutter dependencies
-        script: flutter pub get
+      - name: Resolve Flutter and CocoaPods dependencies
+        script: |
+          flutter pub get
+          cd ios && pod install --repo-update
       - name: Verify deterministic challenge corpus
         script: |
           dart run tool/generate_challenges.dart
