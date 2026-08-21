@@ -17,7 +17,7 @@ definitions:
         dart run tool/generate_challenges.dart
         git diff --exit-code -- assets/data/challenges.json supabase/seed.sql
     - name: Formatting gate
-      script: dart format --output=none --set-exit-if-changed lib test tool
+      script: dart format --output=none --set-exit-if-changed lib test integration_test tool
     - name: Static analysis gate
       script: flutter analyze lib test tool
     - name: Unit and widget tests
@@ -34,9 +34,88 @@ definitions:
           exit 1
         fi
     - name: SQL and RLS contract checks
-      script: dart run tool/verify_backend_contract.dart
+      script: |
+        dart run tool/verify_backend_contract.dart
+        cd services/rls-test
+        corepack enable
+        pnpm install --frozen-lockfile
+        pnpm test
 
 workflows:
+  svnly-ios-simulator:
+    name: SVNLY iOS simulator, native Live Looks and integration
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: ch.sebastianbuergy.svnly
+        APP_ENV: ci
+        LEGAL_BASE_URL: https://svnly.sebastian-buergy.chatgpt.site
+    scripts:
+      - name: Resolve Flutter and CocoaPods dependencies
+        script: |
+          flutter pub get
+          cd ios && pod install --repo-update
+      - name: Flutter analysis, unit and widget tests
+        script: |
+          dart format --output=none --set-exit-if-changed lib test integration_test tool
+          flutter analyze
+          mkdir -p build/test-results
+          flutter test --machine > build/test-results/flutter.json
+        test_report: build/test-results/flutter.json
+      - name: Real PostgreSQL RLS matrix
+        script: |
+          cd services/rls-test
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm test
+      - name: Edge Function type checks
+        script: |
+          brew install deno
+          deno check \
+            supabase/functions/register-device/index.ts \
+            supabase/functions/send-apns/index.ts \
+            supabase/functions/moderate-take/index.ts \
+            supabase/functions/scheduled-jobs/index.ts
+      - name: Boot an available iPhone simulator
+        script: |
+          SIMULATOR_UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for runtime in d.values() for x in runtime if x['name'].startswith('iPhone')))" )
+          echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$CM_ENV"
+          xcrun simctl boot "$SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+      - name: Build unsigned simulator app
+        script: |
+          flutter build ios --simulator --debug \
+            --dart-define=APP_ENV="$APP_ENV" \
+            --dart-define=LEGAL_BASE_URL="$LEGAL_BASE_URL"
+      - name: Native AVFoundation Live Look proof
+        script: |
+          set -o pipefail
+          xcodebuild test \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -destination "id=$SIMULATOR_UDID" \
+            -derivedDataPath build/ios-native-tests \
+            CODE_SIGNING_ALLOWED=NO | tee build/test-results/xcodebuild.log
+      - name: Onboarding and account integration journey
+        script: |
+          flutter test integration_test/onboarding_auth_journey_test.dart -d "$SIMULATOR_UDID"
+      - name: Launch built app and capture running simulator proof
+        script: |
+          mkdir -p build/ios-simulator/screenshots
+          xcrun simctl install "$SIMULATOR_UDID" build/ios/iphonesimulator/Runner.app
+          xcrun simctl launch "$SIMULATOR_UDID" "$BUNDLE_ID"
+          sleep 5
+          xcrun simctl io "$SIMULATOR_UDID" screenshot build/ios-simulator/screenshots/configuration.png
+    artifacts:
+      - build/ios/iphonesimulator/Runner.app/**
+      - build/ios-native-tests/Logs/Test/*.xcresult
+      - build/ios-simulator/screenshots/*.png
+      - build/test-results/**
+
   svnly-tests:
     name: SVNLY quality gates
     instance_type: mac_mini_m2
@@ -66,7 +145,7 @@ workflows:
           dart run tool/generate_challenges.dart
           git diff --exit-code -- assets/data/challenges.json supabase/seed.sql
       - name: Formatting gate
-        script: dart format --output=none --set-exit-if-changed lib test tool
+        script: dart format --output=none --set-exit-if-changed lib test integration_test tool
       - name: Static analysis gate
         script: flutter analyze lib test tool
       - name: Unit and widget tests
@@ -83,7 +162,12 @@ workflows:
             exit 1
           fi
       - name: SQL and RLS contract checks
-        script: dart run tool/verify_backend_contract.dart
+        script: |
+          dart run tool/verify_backend_contract.dart
+          cd services/rls-test
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm test
       - name: Fetch App Store signing files
         script: app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
       - name: Configure signing keychain
