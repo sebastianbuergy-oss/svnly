@@ -37,9 +37,19 @@ definitions:
         fi
     - name: SQL and RLS contract checks
       script: |
+        set -euo pipefail
         dart run tool/verify_backend_contract.dart
-        cd services/rls-test
-        corepack enable
+        cd "$CM_BUILD_DIR/services/rls-test"
+        # Codemagic's builder home can contain a package.json that makes
+        # Corepack force Yarn. Do not let that parent project determine
+        # this isolated test workspace's package manager.
+        corepack disable || true
+        npm install --global pnpm@9
+        echo "Node: $(node --version)"
+        echo "npm: $(npm --version)"
+        echo "pnpm: $(pnpm --version)"
+        echo "Working directory: $(pwd)"
+        test -f pnpm-lock.yaml
         pnpm install --frozen-lockfile
         pnpm test
 
@@ -71,8 +81,18 @@ workflows:
         test_report: build/test-results/flutter.json
       - name: Real PostgreSQL RLS matrix
         script: |
-          cd services/rls-test
-          corepack enable
+          set -euo pipefail
+          cd "$CM_BUILD_DIR/services/rls-test"
+          # Codemagic's builder home can contain a package.json that makes
+          # Corepack force Yarn. Do not let that parent project determine
+          # this isolated test workspace's package manager.
+          corepack disable || true
+          npm install --global pnpm@9
+          echo "Node: $(node --version)"
+          echo "npm: $(npm --version)"
+          echo "pnpm: $(pnpm --version)"
+          echo "Working directory: $(pwd)"
+          test -f pnpm-lock.yaml
           pnpm install --frozen-lockfile
           pnpm test
       - name: Edge Function type checks
@@ -167,9 +187,19 @@ workflows:
           fi
       - name: SQL and RLS contract checks
         script: |
+          set -euo pipefail
           dart run tool/verify_backend_contract.dart
-          cd services/rls-test
-          corepack enable
+          cd "$CM_BUILD_DIR/services/rls-test"
+          # Codemagic's builder home can contain a package.json that makes
+          # Corepack force Yarn. Do not let that parent project determine
+          # this isolated test workspace's package manager.
+          corepack disable || true
+          npm install --global pnpm@9
+          echo "Node: $(node --version)"
+          echo "npm: $(npm --version)"
+          echo "pnpm: $(pnpm --version)"
+          echo "Working directory: $(pwd)"
+          test -f pnpm-lock.yaml
           pnpm install --frozen-lockfile
           pnpm test
       - name: Provision and verify App Review accounts
