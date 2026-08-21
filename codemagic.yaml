@@ -248,7 +248,7 @@ workflows:
         script: |
           set -euo pipefail
           BUNDLE_JSON="$(
-            app-store-connect --json bundle-ids list \
+            app-store-connect bundle-ids list --json \
               --bundle-id-identifier "$BUNDLE_ID" \
               --strict-match-identifier
           )"
