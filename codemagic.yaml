@@ -303,7 +303,11 @@ workflows:
           xcode-project use-profiles
       - name: Set automatic App Store build number
         script: |
-          LATEST_BUILD=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID")
+          LATEST_BUILD=$(
+            app-store-connect get-latest-testflight-build-number \
+              "$APP_STORE_APPLE_ID" \
+              --all-versions
+          )
           echo "SVNLY_BUILD_NUMBER=$((LATEST_BUILD + 1))" >> "$CM_ENV"
       - name: Build signed IPA
         script: |
