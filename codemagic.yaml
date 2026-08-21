@@ -176,6 +176,10 @@ workflows:
       app_store_connect: Codemagic
     environment:
       <<: *common_environment
+      ios_signing:
+        certificates:
+          - certificate: gosafehome-distribution
+            environment_variable: SVNLY_DISTRIBUTION_CERTIFICATE_PATH
     scripts:
       - name: Resolve Flutter dependencies
         script: flutter pub get
@@ -238,13 +242,29 @@ workflows:
           else
             node tool/provision_review_accounts.mjs
           fi
-      - name: Initialize signing keychain
-        script: keychain initialize
       - name: Fetch App Store signing files
-        script: app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
-      - name: Configure signing keychain
         script: |
-          keychain add-certificates
+          set -euo pipefail
+          CERTIFICATE_KEY="$(mktemp)"
+          trap 'rm -f "$CERTIFICATE_KEY"' EXIT
+          if ! openssl pkcs12 \
+            -in "$SVNLY_DISTRIBUTION_CERTIFICATE_PATH" \
+            -nodes \
+            -nocerts \
+            -passin "pass:${CM_CERTIFICATE_PASSWORD:-}" 2>/dev/null \
+            | openssl pkey -out "$CERTIFICATE_KEY" 2>/dev/null; then
+            openssl pkey \
+              -in "$SVNLY_DISTRIBUTION_CERTIFICATE_PATH" \
+              -out "$CERTIFICATE_KEY"
+          fi
+          chmod 600 "$CERTIFICATE_KEY"
+          app-store-connect fetch-signing-files \
+            "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key "@file:$CERTIFICATE_KEY" \
+            --create
+      - name: Configure Xcode signing
+        script: |
           xcode-project use-profiles
       - name: Set automatic App Store build number
         script: |
