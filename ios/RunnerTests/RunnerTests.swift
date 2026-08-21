@@ -108,7 +108,11 @@ final class RunnerTests: XCTestCase {
     let finished = expectation(description: "Fixture video")
     writer.finishWriting { finished.fulfill() }
     wait(for: [finished], timeout: 10)
-    XCTAssertEqual(writer.status, .completed, writer.error?.localizedDescription)
+    XCTAssertEqual(
+      writer.status,
+      .completed,
+      writer.error?.localizedDescription ?? "AVAssetWriter did not complete"
+    )
   }
 
   private func rgbaPixel(from image: CGImage) -> (UInt8, UInt8, UInt8, UInt8) {
