@@ -182,11 +182,9 @@ final class LiveLookVideoProcessor {
     completion: @escaping (Result<[String: Any], Error>) -> Void
   ) {
     let asset = AVURLAsset(url: inputURL)
-    let composition = AVVideoComposition(asset: asset) { [weak self] request in
-      guard let self else {
-        request.finish(with: request.sourceImage, context: nil)
-        return
-      }
+    // Keep the processor alive until AVFoundation has rendered every frame.
+    // Callers intentionally create this processor as a short-lived value.
+    let composition = AVVideoComposition(asset: asset) { request in
       let source = request.sourceImage.clampedToExtent()
       let filtered = self.apply(look: look, to: source).cropped(to: request.sourceImage.extent)
       request.finish(with: filtered, context: self.context)
