@@ -177,6 +177,8 @@ workflows:
     environment:
       <<: *common_environment
       ios_signing:
+        provisioning_profiles:
+          - gosafehome-app-store-profile
         certificates:
           - certificate: gosafehome-distribution
             environment_variable: SVNLY_DISTRIBUTION_CERTIFICATE_PATH
