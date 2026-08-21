@@ -209,6 +209,11 @@ class SupabaseAppRepository implements AppRepository {
         'p_file_size': videoBytes.lengthInBytes,
       },
     );
+    try {
+      await _client.functions.invoke('moderate-take', body: {'takeId': takeId});
+    } catch (_) {
+      // A scheduled server worker retries unresolved moderation queue items.
+    }
   }
 
   @override
