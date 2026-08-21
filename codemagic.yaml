@@ -5,6 +5,7 @@ definitions:
     cocoapods: default
     vars:
       BUNDLE_ID: ch.sebastianbuergy.svnly
+      APP_STORE_APPLE_ID: 6804053042
       APP_ENV: production
       LEGAL_BASE_URL: https://svnly.sebastian-buergy.chatgpt.site
     groups:
