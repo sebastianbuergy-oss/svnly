@@ -67,7 +67,7 @@ void main() {
       find.byKey(const ValueKey('auth_password')),
       'ReviewReady!42',
     );
-    await tester.testTextInput.hide();
+    tester.testTextInput.hide();
     await tester.pumpAndSettle();
     final submitButton = find.byKey(const ValueKey('auth_submit'));
     await tester.ensureVisible(submitButton);
