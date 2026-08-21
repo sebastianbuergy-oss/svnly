@@ -275,6 +275,8 @@ workflows:
             "$BUNDLE_RESOURCE_ID" \
             --capability "Push Notifications"
           python3 tool/enable_apple_sign_in.py "$BUNDLE_RESOURCE_ID"
+      - name: Configure TestFlight review information
+        script: python3 tool/configure_testflight_info.py
       - name: Fetch App Store signing files
         script: |
           set -euo pipefail

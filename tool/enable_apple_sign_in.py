@@ -37,6 +37,19 @@ def resolve_secret(name: str) -> str:
     return value
 
 
+def create_token() -> str:
+    issuer_id = resolve_secret("APP_STORE_CONNECT_ISSUER_ID")
+    key_id = resolve_secret("APP_STORE_CONNECT_KEY_IDENTIFIER")
+    private_key = resolve_secret("APP_STORE_CONNECT_PRIVATE_KEY")
+    now = int(time.time())
+    return jwt.encode(
+        {"iss": issuer_id, "iat": now, "exp": now + 1200, "aud": "appstoreconnect-v1"},
+        private_key,
+        algorithm="ES256",
+        headers={"kid": key_id, "typ": "JWT"},
+    )
+
+
 def request(method: str, path: str, token: str, body: dict | None = None) -> dict:
     data = None if body is None else json.dumps(body).encode("utf-8")
     http_request = urllib.request.Request(
@@ -63,16 +76,7 @@ def main() -> None:
         raise SystemExit("Usage: enable_apple_sign_in.py BUNDLE_ID_RESOURCE_ID")
 
     bundle_resource_id = sys.argv[1]
-    issuer_id = resolve_secret("APP_STORE_CONNECT_ISSUER_ID")
-    key_id = resolve_secret("APP_STORE_CONNECT_KEY_IDENTIFIER")
-    private_key = resolve_secret("APP_STORE_CONNECT_PRIVATE_KEY")
-    now = int(time.time())
-    token = jwt.encode(
-        {"iss": issuer_id, "iat": now, "exp": now + 1200, "aud": "appstoreconnect-v1"},
-        private_key,
-        algorithm="ES256",
-        headers={"kid": key_id, "typ": "JWT"},
-    )
+    token = create_token()
 
     capabilities = request(
         "GET",
