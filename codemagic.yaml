@@ -117,12 +117,24 @@ workflows:
       - name: Native AVFoundation Live Look proof
         script: |
           set -o pipefail
+          set +e
           xcodebuild test \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -destination "id=$SIMULATOR_UDID" \
             -derivedDataPath build/ios-native-tests \
             CODE_SIGNING_ALLOWED=NO | tee build/test-results/xcodebuild.log
+          XCODE_STATUS=${PIPESTATUS[0]}
+          if [ "$XCODE_STATUS" -ne 0 ]; then
+            RESULT_BUNDLE=$(find build/ios-native-tests/Logs/Test -name '*.xcresult' -print -quit)
+            if [ -n "$RESULT_BUNDLE" ]; then
+              echo "XCTest result summary"
+              xcrun xcresulttool get test-results summary --path "$RESULT_BUNDLE" || true
+              echo "XCTest result details"
+              xcrun xcresulttool get test-results tests --path "$RESULT_BUNDLE" || true
+            fi
+          fi
+          exit "$XCODE_STATUS"
       - name: Onboarding and account integration journey
         script: |
           flutter test integration_test/onboarding_auth_journey_test.dart -d "$SIMULATOR_UDID"
