@@ -244,6 +244,33 @@ workflows:
           else
             node tool/provision_review_accounts.mjs
           fi
+      - name: Enable required Apple capabilities
+        script: |
+          set -euo pipefail
+          BUNDLE_JSON="$(
+            app-store-connect --json bundle-ids list \
+              --bundle-id-identifier "$BUNDLE_ID" \
+              --strict-match-identifier
+          )"
+          BUNDLE_RESOURCE_ID="$(
+            printf '%s' "$BUNDLE_JSON" | node -e '
+              let input = "";
+              process.stdin.setEncoding("utf8");
+              process.stdin.on("data", chunk => input += chunk);
+              process.stdin.on("end", () => {
+                const parsed = JSON.parse(input);
+                const rows = Array.isArray(parsed) ? parsed : parsed.data;
+                if (!Array.isArray(rows) || rows.length !== 1 || !rows[0].id) {
+                  process.exit(1);
+                }
+                process.stdout.write(rows[0].id);
+              });
+            '
+          )"
+          test -n "$BUNDLE_RESOURCE_ID"
+          app-store-connect bundle-ids enable-capabilities \
+            "$BUNDLE_RESOURCE_ID" \
+            --capability "Push Notifications" "Sign In with Apple"
       - name: Fetch App Store signing files
         script: |
           set -euo pipefail
