@@ -5,10 +5,10 @@ Only one owner action is current. Do not perform the later Apple or commercial s
 ## Complete the GitHub two-factor sign-in now
 
 - Platform: the already open Codex in-app browser tab on `github.com/login`.
-- Path: **GitHub → Sign in → account `sebastianbuergy-oss` → Password → Verify with your configured two-factor method**.
-- Stop after the normal authenticated GitHub home page appears; do not create a repository manually.
+- Path: **GitHub → Sign in → account `sebastianbuergy-oss` → Password → Verify with your configured two-factor method → Authorize Codemagic (if shown) → return to Codemagic**.
+- Stop after Codemagic confirms the GitHub connection; do not create a repository manually.
 - Why: the stored Git transport credential cannot call GitHub's repository API (HTTP 403), and Codemagic currently has no SVNLY application. After this one sign-in, Codex can create the private `svnly` repository, push all commits, register it through the existing Codemagic API token, run `svnly-ios-simulator`, collect the five screenshots and then continue to Apple signing.
-- Verify: the browser no longer shows the GitHub sign-in form and the avatar menu is visible.
+- Verify: Codemagic opens without the GitHub sign-in form and shows the connected GitHub account.
 
 ---
 
