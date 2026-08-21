@@ -15,7 +15,10 @@ The feed is intentionally locked until the user submits today’s take. This is 
 
 ## Review accounts
 
-- Account A (today’s take complete): **TO BE CREATED BY OWNER**; credentials entered in App Store Connect review notes, never committed.
-- Account B (no take today): **TO BE CREATED BY OWNER**; credentials entered in App Store Connect review notes, never committed.
+- Account A is a confirmed public profile (`review.primary`) with a completed production onboarding state.
+- Account B is a confirmed private profile (`review.secondary`) with a completed production onboarding state.
+- The accounts follow each other with an accepted relationship, so Friends and private-profile behavior can be reviewed immediately.
+- Their email/password values come from the encrypted Codemagic variables `APP_REVIEW_PRIMARY_*` and `APP_REVIEW_SECONDARY_*`; credentials are entered in App Store Connect review notes and are never committed.
+- `node tool/provision_review_accounts.mjs` creates or repairs both accounts idempotently and verifies both production profiles. The TestFlight workflow runs this before signing.
 
-There is no hidden review bypass. If automated moderation delays publication, the take displays its normal processing/review state.
+Neither account receives a hidden challenge or moderation bypass. Both begin each UTC day without a take; the reviewer records normally. If automated moderation delays publication, the take displays its normal processing/review state.

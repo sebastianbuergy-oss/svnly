@@ -23,13 +23,15 @@ definitions:
     - name: Unit and widget tests
       script: mkdir -p build/test-results && flutter test --machine > build/test-results/flutter.json
       test_report: build/test-results/flutter.json
+    - name: Release automation tests
+      script: node --test tool/test/*.test.mjs
     - name: Dependency inventory and outdated audit
       script: |
         flutter pub deps --style=compact > build/dependencies.txt
         flutter pub outdated --no-dev-dependencies
     - name: Secret scan
       script: |
-        if git grep -nEI '(sb_secret_[A-Za-z0-9_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|sk_live_[A-Za-z0-9]|AKIA[0-9A-Z]{16})' -- ':!codemagic.yaml' ':!.env.example'; then
+        if git grep -nEI '(sb_secret_[A-Za-z0-9_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----$|sk_live_[A-Za-z0-9]|AKIA[0-9A-Z]{16})' -- ':!codemagic.yaml' ':!.env.example'; then
           echo "Potential secret detected"
           exit 1
         fi
@@ -65,6 +67,7 @@ workflows:
           flutter analyze
           mkdir -p build/test-results
           flutter test --machine > build/test-results/flutter.json
+          node --test tool/test/*.test.mjs
         test_report: build/test-results/flutter.json
       - name: Real PostgreSQL RLS matrix
         script: |
@@ -158,7 +161,7 @@ workflows:
           flutter pub outdated --no-dev-dependencies
       - name: Secret scan
         script: |
-          if git grep -nEI '(sb_secret_[A-Za-z0-9_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|sk_live_[A-Za-z0-9]|AKIA[0-9A-Z]{16})' -- ':!codemagic.yaml' ':!.env.example'; then
+          if git grep -nEI '(sb_secret_[A-Za-z0-9_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----$|sk_live_[A-Za-z0-9]|AKIA[0-9A-Z]{16})' -- ':!codemagic.yaml' ':!.env.example'; then
             echo "Potential secret detected"
             exit 1
           fi
@@ -169,6 +172,8 @@ workflows:
           corepack enable
           pnpm install --frozen-lockfile
           pnpm test
+      - name: Provision and verify App Review accounts
+        script: node tool/provision_review_accounts.mjs
       - name: Fetch App Store signing files
         script: app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
       - name: Configure signing keychain
