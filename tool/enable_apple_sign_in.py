@@ -76,7 +76,7 @@ def main() -> None:
 
     capabilities = request(
         "GET",
-        f"/bundleIds/{bundle_resource_id}/bundleIdCapabilities?limit=200",
+        f"/bundleIds/{bundle_resource_id}/bundleIdCapabilities",
         token,
     ).get("data", [])
     existing = next(
