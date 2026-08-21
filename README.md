@@ -42,6 +42,6 @@ The app fails closed into a configuration screen when backend values are absent.
 
 ## Public website
 
-Owner-protected production deployment: <https://svnly.sebastian-buergy.chatgpt.site>
+Public production deployment: <https://svnly.sebastian-buergy.chatgpt.site>
 
-The repository is a release candidate, not a claim that Apple signing, physical-device behavior or App Review has been completed without the owner’s credentials and hardware.
+The repository records implemented and actually executed gates separately in `TEST_REPORT.md`; Apple signing, TestFlight and physical-device results are reported only after those runs complete.
