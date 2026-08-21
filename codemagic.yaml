@@ -176,9 +176,6 @@ workflows:
       app_store_connect: svnly-app-store-connect
     environment:
       <<: *common_environment
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: ch.sebastianbuergy.svnly
     scripts:
       - name: Resolve Flutter dependencies
         script: flutter pub get
@@ -222,11 +219,12 @@ workflows:
           pnpm test
       - name: Provision and verify App Review accounts
         script: node tool/provision_review_accounts.mjs
+      - name: Initialize signing keychain
+        script: keychain initialize
       - name: Fetch App Store signing files
         script: app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
       - name: Configure signing keychain
         script: |
-          keychain initialize
           keychain add-certificates
           xcode-project use-profiles
       - name: Set automatic App Store build number
