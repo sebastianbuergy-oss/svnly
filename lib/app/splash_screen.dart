@@ -44,6 +44,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     } catch (_) {
       // The protected local take remains queued for the next authenticated launch.
     }
+    try {
+      await repository.registerForPush(promptIfNeeded: false);
+    } catch (_) {
+      // Token refresh is retried on the next launch or notification settings change.
+    }
     final profileComplete = await repository.hasCompletedProfile();
     if (mounted) context.go(profileComplete ? '/home' : '/profile-setup');
   }

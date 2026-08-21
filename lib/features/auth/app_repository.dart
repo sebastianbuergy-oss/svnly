@@ -55,6 +55,7 @@ abstract interface class AppRepository {
   Future<List<Map<String, dynamic>>> loadRankings(String period, String scope);
   Future<Map<String, dynamic>> loadMyProfile();
   Future<void> updateSetting(String key, Object? value);
+  Future<bool> registerForPush({required bool promptIfNeeded});
   Future<List<Map<String, dynamic>>> loadBlockedUsers();
   Future<void> unblock(String profileId);
   Future<void> createSupportTicket(String subject, String body);
@@ -133,6 +134,9 @@ class UnconfiguredRepository implements AppRepository {
   Future<Map<String, dynamic>> loadMyProfile() async => _missing();
   @override
   Future<void> updateSetting(String key, Object? value) async => _missing();
+  @override
+  Future<bool> registerForPush({required bool promptIfNeeded}) async =>
+      _missing();
   @override
   Future<List<Map<String, dynamic>>> loadBlockedUsers() async => _missing();
   @override

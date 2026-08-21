@@ -2,9 +2,13 @@ import Flutter
 import AVFoundation
 import CoreImage
 import UIKit
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  private var pushChannel: FlutterMethodChannel?
+  private var pendingPushResult: FlutterResult?
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -47,6 +51,110 @@ import UIKit
         }
       }
     }
+
+    pushChannel = FlutterMethodChannel(
+      name: "ch.sebastianbuergy.svnly/push",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    pushChannel?.setMethodCallHandler { [weak self] call, result in
+      guard let self else { return }
+      switch call.method {
+      case "requestRegistration":
+        self.requestPushRegistration(promptIfNeeded: true, result: result)
+      case "refreshRegistration":
+        self.requestPushRegistration(promptIfNeeded: false, result: result)
+      case "unregister":
+        UIApplication.shared.unregisterForRemoteNotifications()
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+    UNUserNotificationCenter.current().delegate = self
+  }
+
+  private func requestPushRegistration(promptIfNeeded: Bool, result: @escaping FlutterResult) {
+    UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+      guard let self else { return }
+      if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
+        DispatchQueue.main.async {
+          self.pendingPushResult = result
+          UIApplication.shared.registerForRemoteNotifications()
+        }
+        return
+      }
+      guard promptIfNeeded && settings.authorizationStatus == .notDetermined else {
+        DispatchQueue.main.async { result(["granted": false]) }
+        return
+      }
+      UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) {
+        granted, error in
+        DispatchQueue.main.async {
+          if let error {
+            result(FlutterError(code: "PUSH_PERMISSION_FAILED", message: error.localizedDescription, details: nil))
+          } else if granted {
+            self.pendingPushResult = result
+            UIApplication.shared.registerForRemoteNotifications()
+          } else {
+            result(["granted": false])
+          }
+        }
+      }
+    }
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+    #if DEBUG
+    let environment = "sandbox"
+    #else
+    let environment = "production"
+    #endif
+    let registration: [String: Any] = [
+      "granted": true,
+      "token": token,
+      "environment": environment,
+      "locale": Locale.preferredLanguages.first ?? "en",
+      "timezone": TimeZone.current.identifier
+    ]
+    pendingPushResult?(registration)
+    pendingPushResult = nil
+    pushChannel?.invokeMethod("tokenChanged", arguments: registration)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    pendingPushResult?(FlutterError(
+      code: "APNS_REGISTRATION_FAILED",
+      message: error.localizedDescription,
+      details: nil
+    ))
+    pendingPushResult = nil
+  }
+
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    pushChannel?.invokeMethod(
+      "notificationOpened",
+      arguments: response.notification.request.content.userInfo
+    )
+    completionHandler()
+  }
+
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    completionHandler([.banner, .badge, .sound])
   }
 }
 

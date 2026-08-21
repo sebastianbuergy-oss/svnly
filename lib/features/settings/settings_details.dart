@@ -94,6 +94,16 @@ class _NotificationSettingsState
             title: Text(labels[key]!),
             value: values[key]!,
             onChanged: (value) async {
+              if (value) {
+                final registered = await ref
+                    .read(appRepositoryProvider)
+                    .registerForPush(promptIfNeeded: true);
+                if (!registered) {
+                  if (mounted) setState(() => values[key] = false);
+                  return;
+                }
+              }
+              if (!mounted) return;
               setState(() => values[key] = value);
               await ref.read(appRepositoryProvider).updateSetting(key, value);
             },

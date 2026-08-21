@@ -7,6 +7,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../challenge/models.dart';
+import '../notifications/push_registration.dart';
 import 'app_repository.dart';
 
 class SupabaseAppRepository implements AppRepository {
@@ -352,6 +353,27 @@ class SupabaseAppRepository implements AppRepository {
       'update_user_setting',
       params: {'p_key': key, 'p_value': value},
     );
+  }
+
+  @override
+  Future<bool> registerForPush({required bool promptIfNeeded}) async {
+    final registration = await PushRegistrationService.register(
+      promptIfNeeded: promptIfNeeded,
+    );
+    if (registration == null) return false;
+    final response = await _client.functions.invoke(
+      'register-device',
+      body: {
+        'token': registration.token,
+        'environment': registration.environment,
+        'locale': registration.locale,
+        'timezone': registration.timezone,
+      },
+    );
+    if (response.status < 200 || response.status >= 300) {
+      throw StateError('APNs device registration was rejected.');
+    }
+    return true;
   }
 
   @override

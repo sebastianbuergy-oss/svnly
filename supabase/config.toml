@@ -1,0 +1,7 @@
+project_id = "svnly"
+
+[functions.send-apns]
+verify_jwt = false
+
+[functions.revenuecat-webhook]
+verify_jwt = false
