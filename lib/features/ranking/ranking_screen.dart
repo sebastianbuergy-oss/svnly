@@ -25,7 +25,12 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
   Future<List<Map<String, dynamic>>> _load() =>
       ref.read(appRepositoryProvider).loadRankings(period, scope);
 
-  void _reload() => setState(() => rankings = _load());
+  void _reload() {
+    final next = _load();
+    setState(() {
+      rankings = next;
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(

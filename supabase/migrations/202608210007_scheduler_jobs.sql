@@ -79,11 +79,11 @@ begin
   select t.id,
     coalesce(v.impressions,0),coalesce(v.completed,0),coalesce(v.impressions,0),
     coalesce(r.reaction_count,0),coalesce(cm.unique_commenters,0),coalesce(cm.comment_count,0),
-    case when t.status<>'published' or coalesce(v.impressions,0)<5 then 0 else round((
+    case when t.status<>'published' or coalesce(v.impressions,0)<5 then 0 else round(((
       40.0*least(coalesce(r.reaction_count,0)::numeric/v.impressions,1)+
       35.0*least(coalesce(cm.unique_commenters,0)::numeric/v.impressions,1)+
       25.0*(coalesce(v.completed,0)::numeric/v.impressions)
-    )*least(1,ln(1+v.impressions)/ln(51)),4) end,now()
+    )*least(1,ln(1+v.impressions)/ln(51)))::numeric,4) end,now()
   from public.takes t
   left join lateral (select count(*)::integer impressions,
     count(*) filter(where tv.completed)::integer completed from public.take_views tv where tv.take_id=t.id) v on true

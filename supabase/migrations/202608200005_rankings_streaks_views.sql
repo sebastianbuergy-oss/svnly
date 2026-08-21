@@ -81,11 +81,11 @@ begin
       and not public.is_blocked(c.user_id,v_take.user_id);
 
   v_score := case when v_take.status<>'published' or v_impressions<5 then 0 else
-    round((
+    round(((
       40.0*least(v_reactions::numeric/v_impressions,1) +
       35.0*least(v_commenters::numeric/v_impressions,1) +
       25.0*(v_completed::numeric/v_impressions)
-    ) * least(1,ln(1+v_impressions)/ln(51)),4)
+    ) * least(1,ln(1+v_impressions)/ln(51)))::numeric,4)
   end;
 
   insert into public.take_metrics(

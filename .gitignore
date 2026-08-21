@@ -36,6 +36,7 @@ migrate_working_dir/
 /work/
 /outputs/
 /site/node_modules/
+**/node_modules/
 /site/dist/
 /site/.vinext/
 /site/.git/

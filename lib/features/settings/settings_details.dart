@@ -91,6 +91,7 @@ class _NotificationSettingsState
         const SizedBox(height: 12),
         ...values.keys.map(
           (key) => SwitchListTile.adaptive(
+            key: ValueKey('notification_$key'),
             title: Text(labels[key]!),
             value: values[key]!,
             onChanged: (value) async {
@@ -132,6 +133,7 @@ class _PrivacySettingsState extends ConsumerState<PrivacySettingsScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         SwitchListTile.adaptive(
+          key: const ValueKey('privacy_private_profile'),
           title: const Text('Private profile'),
           subtitle: const Text(
             'New followers require approval. Country and World feeds exclude your takes.',
@@ -146,6 +148,7 @@ class _PrivacySettingsState extends ConsumerState<PrivacySettingsScreen> {
         ),
         const Divider(),
         DropdownButtonFormField<String>(
+          key: const ValueKey('privacy_comment_permission'),
           initialValue: comments,
           decoration: const InputDecoration(labelText: 'Who can comment'),
           items: const [
@@ -166,6 +169,7 @@ class _PrivacySettingsState extends ConsumerState<PrivacySettingsScreen> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
+          key: const ValueKey('privacy_auto_delete'),
           initialValue: retention,
           decoration: const InputDecoration(
             labelText: 'Automatically delete takes',

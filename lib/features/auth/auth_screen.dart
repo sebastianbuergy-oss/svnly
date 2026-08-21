@@ -127,6 +127,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                 ),
                 TextFormField(
+                  key: const ValueKey('auth_email'),
                   controller: email,
                   keyboardType: TextInputType.emailAddress,
                   autofillHints: const [AutofillHints.email],
@@ -138,6 +139,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
+                  key: const ValueKey('auth_password'),
                   controller: password,
                   obscureText: true,
                   autofillHints: [
