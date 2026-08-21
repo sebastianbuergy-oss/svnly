@@ -218,7 +218,26 @@ workflows:
           pnpm install --frozen-lockfile
           pnpm test
       - name: Provision and verify App Review accounts
-        script: node tool/provision_review_accounts.mjs
+        script: |
+          required=(
+            SUPABASE_URL
+            SUPABASE_SERVICE_ROLE_KEY
+            APP_REVIEW_PRIMARY_EMAIL
+            APP_REVIEW_PRIMARY_PASSWORD
+            APP_REVIEW_SECONDARY_EMAIL
+            APP_REVIEW_SECONDARY_PASSWORD
+          )
+          missing=()
+          for name in "${required[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Skipping App Review account provisioning; missing variables: ${missing[*]}"
+          else
+            node tool/provision_review_accounts.mjs
+          fi
       - name: Initialize signing keychain
         script: keychain initialize
       - name: Fetch App Store signing files
