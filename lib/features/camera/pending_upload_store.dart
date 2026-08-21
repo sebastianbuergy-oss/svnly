@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,14 +11,14 @@ class PendingUploadStore {
   static const _metadataKey = 'pending_take_upload';
 
   static Future<void> persist({
-    required XFile source,
+    required File source,
     required TakeAttempt attempt,
     required int durationMs,
     required String look,
   }) async {
     final directory = await getApplicationSupportDirectory();
     final target = File('${directory.path}/pending-${attempt.id}.mp4');
-    await File(source.path).copy(target.path);
+    await source.copy(target.path);
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(
       _metadataKey,

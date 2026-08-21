@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
@@ -14,6 +15,7 @@ import '../../core/errors/error_mapper.dart';
 import '../../core/widgets/brand.dart';
 import '../challenge/models.dart';
 import 'pending_upload_store.dart';
+import 'live_look_processor.dart';
 
 enum CaptureStage {
   explanation,
@@ -176,7 +178,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         return;
       }
       setState(() => stage = CaptureStage.processing);
-      final bytes = await file.readAsBytes();
+      final rawFile = File(file.path);
+      final processed = await LiveLookProcessor.burn(
+        source: rawFile,
+        attemptId: attempt!.id,
+        look: look,
+      );
+      final bytes = await processed.file.readAsBytes();
       try {
         await ref
             .read(appRepositoryProvider)
@@ -188,11 +196,16 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             );
       } catch (_) {
         await PendingUploadStore.persist(
-          source: file,
+          source: processed.file,
           attempt: attempt!,
           durationMs: duration,
           look: look,
         );
+      }
+      try {
+        await rawFile.delete();
+      } on FileSystemException {
+        // The camera plugin may already have reclaimed its temporary source.
       }
       ref.invalidate(hasTakeTodayProvider);
       ref.invalidate(currentChallengeProvider);
