@@ -13,6 +13,11 @@ APP_DESCRIPTION = (
     "SVNLY ist eine Video-Community für spontane Momente, tägliche Challenges "
     "und authentische Begegnungen."
 )
+BETA_AGREEMENT = """SVNLY Beta-Testvereinbarung / Beta Testing Agreement
+
+Diese Vorabversion von SVNLY wird ausschließlich zu Testzwecken bereitgestellt. Sie kann Fehler enthalten, sich ohne Ankündigung ändern oder zeitweise nicht verfügbar sein. Verlasse dich nicht auf die App für Notfälle oder sicherheitskritische Zwecke. Behandle nicht öffentlich veröffentlichte Funktionen und Materialien vertraulich. Teile nur Inhalte, für die du die erforderlichen Rechte und Einwilligungen besitzt, und beachte die SVNLY-Nutzungsbedingungen, Community-Richtlinien und Datenschutzerklärung. Testdaten können zurückgesetzt werden.
+
+This prerelease version of SVNLY is provided solely for testing. It may contain errors, change without notice, or be temporarily unavailable. Do not rely on it for emergencies or safety-critical use. Keep non-public features and materials confidential. Share only content for which you have the necessary rights and consents, and follow the SVNLY Terms, Community Guidelines, and Privacy Policy. Test data may be reset. Use is also subject to Apple's TestFlight terms."""
 
 
 def complete_review_contact(attributes: dict) -> bool:
@@ -87,6 +92,26 @@ def main() -> None:
         review_payload,
     )
 
+    agreement = request(
+        "GET", f"/apps/{target_app_id}/betaLicenseAgreement", token
+    ).get("data", {})
+    agreement_id = agreement.get("id")
+    if not agreement_id:
+        raise RuntimeError("SVNLY beta license agreement resource was not found")
+    agreement_payload = {
+        "data": {
+            "type": "betaLicenseAgreements",
+            "id": agreement_id,
+            "attributes": {"agreementText": BETA_AGREEMENT},
+        }
+    }
+    request(
+        "PATCH",
+        f"/betaLicenseAgreements/{agreement_id}",
+        token,
+        agreement_payload,
+    )
+
     localizations = request(
         "GET", f"/apps/{target_app_id}/betaAppLocalizations", token
     ).get("data", [])
@@ -133,7 +158,10 @@ def main() -> None:
         }
         request("POST", "/betaAppLocalizations", token, localization_payload)
 
-    print("SVNLY TestFlight contact and localized beta information are complete.")
+    print(
+        "SVNLY TestFlight contact, beta agreement, and localized information "
+        "are complete."
+    )
 
 
 if __name__ == "__main__":
