@@ -94,23 +94,33 @@ def main() -> None:
 
     agreement = request(
         "GET", f"/apps/{target_app_id}/betaLicenseAgreement", token
-    ).get("data", {})
-    agreement_id = agreement.get("id")
-    if not agreement_id:
-        raise RuntimeError("SVNLY beta license agreement resource was not found")
-    agreement_payload = {
-        "data": {
-            "type": "betaLicenseAgreements",
-            "id": agreement_id,
-            "attributes": {"agreementText": BETA_AGREEMENT},
+    ).get("data")
+    if agreement:
+        agreement_id = agreement["id"]
+        agreement_payload = {
+            "data": {
+                "type": "betaLicenseAgreements",
+                "id": agreement_id,
+                "attributes": {"agreementText": BETA_AGREEMENT},
+            }
         }
-    }
-    request(
-        "PATCH",
-        f"/betaLicenseAgreements/{agreement_id}",
-        token,
-        agreement_payload,
-    )
+        request(
+            "PATCH",
+            f"/betaLicenseAgreements/{agreement_id}",
+            token,
+            agreement_payload,
+        )
+    else:
+        agreement_payload = {
+            "data": {
+                "type": "betaLicenseAgreements",
+                "attributes": {"agreementText": BETA_AGREEMENT},
+                "relationships": {
+                    "app": {"data": {"type": "apps", "id": target_app_id}}
+                },
+            }
+        }
+        request("POST", "/betaLicenseAgreements", token, agreement_payload)
 
     localizations = request(
         "GET", f"/apps/{target_app_id}/betaAppLocalizations", token
