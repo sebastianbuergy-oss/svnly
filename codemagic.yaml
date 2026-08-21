@@ -137,9 +137,15 @@ workflows:
           exit "$XCODE_STATUS"
       - name: Onboarding and account integration journey
         script: |
+          xcrun simctl boot "$SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          flutter devices
           flutter test integration_test/onboarding_auth_journey_test.dart -d "$SIMULATOR_UDID"
       - name: Capture real app screenshot series from the iOS simulator
         script: |
+          xcrun simctl boot "$SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          flutter devices
           mkdir -p build/ios-simulator/screenshots
           flutter drive \
             --driver=test_driver/integration_test.dart \
