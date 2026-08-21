@@ -3,5 +3,11 @@ project_id = "svnly"
 [functions.send-apns]
 verify_jwt = false
 
+[functions.scheduled-jobs]
+verify_jwt = false
+
+[functions.moderate-take]
+verify_jwt = false
+
 [functions.revenuecat-webhook]
 verify_jwt = false

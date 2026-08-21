@@ -11,10 +11,14 @@ function encodeBase64Url(value: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+function asArrayBuffer(value: Uint8Array): ArrayBuffer {
+  return Uint8Array.from(value).buffer;
+}
+
 async function importEncryptionKey(encodedKey: string): Promise<CryptoKey> {
   const raw = decodeBase64(encodedKey);
   if (raw.byteLength !== 32) throw new Error('DEVICE_TOKEN_ENCRYPTION_KEY must contain 32 bytes');
-  return await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  return await crypto.subtle.importKey('raw', asArrayBuffer(raw), 'AES-GCM', false, ['encrypt', 'decrypt']);
 }
 
 export async function tokenHash(token: string): Promise<string> {
@@ -40,11 +44,11 @@ export async function decryptDeviceToken(value: string, encodedKey: string): Pro
   const plaintext = await crypto.subtle.decrypt(
     {
       name: 'AES-GCM',
-      iv: decodeBase64(ivValue),
+      iv: asArrayBuffer(decodeBase64(ivValue)),
       additionalData: new TextEncoder().encode('svnly-apns-token-v1'),
     },
     key,
-    decodeBase64(cipherValue),
+    asArrayBuffer(decodeBase64(cipherValue)),
   );
   return new TextDecoder().decode(plaintext);
 }

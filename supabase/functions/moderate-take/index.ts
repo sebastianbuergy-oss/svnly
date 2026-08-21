@@ -7,6 +7,8 @@ const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const openAiKey = Deno.env.get('OPENAI_API_KEY');
 const mediaWorkerUrl = Deno.env.get('MEDIA_WORKER_URL');
 const mediaWorkerToken = Deno.env.get('MEDIA_WORKER_TOKEN');
+const cronSecret = Deno.env.get('CRON_SECRET') ?? '';
+const admin = createClient<any>(url, serviceKey, {auth: {persistSession: false}});
 
 type ExtractedFrame = {
   name: string;
@@ -30,17 +32,23 @@ function decodeBase64(value: string): Uint8Array {
 }
 
 async function sha256(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const digest = await crypto.subtle.digest('SHA-256', Uint8Array.from(bytes).buffer);
   return [...new Uint8Array(digest)].map((part) => part.toString(16).padStart(2, '0')).join('');
 }
 
-async function markForHumanReview(admin: ReturnType<typeof createClient>, takeId: string, reason: string) {
+async function matchesSecret(expected: string, supplied: string): Promise<boolean> {
+  if (!expected || !supplied) return false;
+  const hashes = await Promise.all([expected, supplied].map(async (value) =>
+    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))));
+  return hashes[0].every((byte, index) => byte === hashes[1][index]);
+}
+
+async function markForHumanReview(takeId: string, reason: string) {
   await admin.from('takes').update({status: 'under_review', moderation_reason: reason}).eq('id', takeId);
   await admin.from('moderation_queue').update({priority: 80}).eq('target_id', takeId).eq('status', 'open');
 }
 
 async function extractTrustedFrames(
-  admin: ReturnType<typeof createClient>,
   take: {id: string; storage_path: string},
 ): Promise<ExtractionProof> {
   if (!mediaWorkerUrl || !mediaWorkerToken) throw new Error('media_worker_unconfigured');
@@ -97,17 +105,17 @@ async function extractTrustedFrames(
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', {headers: corsHeaders});
   if (request.method !== 'POST') return json({error: 'method_not_allowed'}, 405);
-  const authorization = request.headers.get('Authorization');
-  if (!authorization) return json({error: 'authentication_required'}, 401);
+  const authorization = request.headers.get('Authorization') ?? '';
+  const suppliedCronSecret = request.headers.get('x-cron-secret') ?? '';
+  const systemCall = await matchesSecret(cronSecret, suppliedCronSecret);
   const caller = createClient(url, anonKey, {global: {headers: {Authorization: authorization}}});
-  const {data: {user}} = await caller.auth.getUser();
-  if (!user) return json({error: 'invalid_session'}, 401);
+  const {data: {user}} = systemCall ? {data: {user: null}} : await caller.auth.getUser();
+  if (!systemCall && !user) return json({error: 'invalid_session'}, 401);
   const {takeId} = await request.json();
-  const admin = createClient(url, serviceKey, {auth: {persistSession: false}});
   const {data: take} = await admin.from('takes')
     .select('id,user_id,status,storage_path').eq('id', takeId).single();
   if (!take || !take.storage_path ||
-      (take.user_id !== user.id && !['admin', 'moderator'].includes(user.app_metadata?.role))) {
+      (!systemCall && take.user_id !== user!.id && !['admin', 'moderator'].includes(user!.app_metadata?.role))) {
     return json({error: 'not_found'}, 404);
   }
   if (!['processing', 'under_review'].includes(take.status)) {
@@ -115,13 +123,13 @@ Deno.serve(async (request) => {
   }
 
   try {
-    await extractTrustedFrames(admin, take);
+    await extractTrustedFrames(take);
   } catch (error) {
-    await markForHumanReview(admin, takeId, error instanceof Error ? error.message : 'extraction_failed');
+    await markForHumanReview(takeId, error instanceof Error ? error.message : 'extraction_failed');
     return json({status: 'under_review'});
   }
   if (!openAiKey) {
-    await markForHumanReview(admin, takeId, 'automated_check_unavailable');
+    await markForHumanReview(takeId, 'automated_check_unavailable');
     return json({status: 'under_review'});
   }
 
@@ -130,7 +138,7 @@ Deno.serve(async (request) => {
     const {data, error} = await admin.storage.from('moderation-artifacts')
       .createSignedUrl(`${takeId}/frames/${name}`, 60);
     if (error || !data?.signedUrl) {
-      await markForHumanReview(admin, takeId, 'frame_signing_failed');
+      await markForHumanReview(takeId, 'frame_signing_failed');
       return json({status: 'under_review'});
     }
     imageInputs.push({type: 'image_url', image_url: {url: data.signedUrl}});
@@ -141,7 +149,7 @@ Deno.serve(async (request) => {
     body: JSON.stringify({model: 'omni-moderation-latest', input: imageInputs}),
   });
   if (!response.ok) {
-    await markForHumanReview(admin, takeId, 'moderation_provider_error');
+    await markForHumanReview(takeId, 'moderation_provider_error');
     return json({status: 'under_review'});
   }
   const result = await response.json();

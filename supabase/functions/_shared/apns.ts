@@ -23,10 +23,10 @@ function base64Url(value: Uint8Array | string): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function privateKeyDer(value: string): Uint8Array {
+function privateKeyDer(value: string): ArrayBuffer {
   const pem = new TextDecoder().decode(Uint8Array.from(atob(value), (character) => character.charCodeAt(0)));
   const body = pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
-  return Uint8Array.from(atob(body), (character) => character.charCodeAt(0));
+  return Uint8Array.from(atob(body), (character) => character.charCodeAt(0)).buffer;
 }
 
 async function providerToken(configuration: ApnsConfiguration): Promise<string> {
