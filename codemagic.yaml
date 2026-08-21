@@ -270,7 +270,8 @@ workflows:
           test -n "$BUNDLE_RESOURCE_ID"
           app-store-connect bundle-ids enable-capabilities \
             "$BUNDLE_RESOURCE_ID" \
-            --capability "Push Notifications" "Sign In with Apple"
+            --capability "Push Notifications"
+          python3 tool/enable_apple_sign_in.py "$BUNDLE_RESOURCE_ID"
       - name: Fetch App Store signing files
         script: |
           set -euo pipefail
