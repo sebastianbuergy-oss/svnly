@@ -39,6 +39,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>SVNLY uses the camera only to record your direct seven-second daily take. Gallery uploads are not available.</string>
 	<key>NSMicrophoneUsageDescription</key>
