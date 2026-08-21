@@ -55,6 +55,17 @@ definitions:
         pnpm test
 
 workflows:
+  svnly-testflight-internal:
+    name: SVNLY internal TestFlight distribution
+    instance_type: mac_mini_m2
+    max_build_duration: 10
+    integrations:
+      app_store_connect: Codemagic
+    environment: *common_environment
+    scripts:
+      - name: Assign latest build and Account Holder to internal TestFlight
+        script: python3 tool/configure_internal_testflight.py
+
   svnly-ios-simulator:
     name: SVNLY iOS simulator, native Live Looks and integration
     instance_type: mac_mini_m2

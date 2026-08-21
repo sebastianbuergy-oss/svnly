@@ -63,7 +63,8 @@ def request(method: str, path: str, token: str, body: dict | None = None) -> dic
     )
     try:
         with urllib.request.urlopen(http_request, timeout=30) as response:
-            return json.load(response)
+            raw_response = response.read()
+            return json.loads(raw_response) if raw_response else {}
     except urllib.error.HTTPError as error:
         details = error.read().decode("utf-8", errors="replace")
         raise RuntimeError(
