@@ -103,13 +103,14 @@ workflows:
       - name: Onboarding and account integration journey
         script: |
           flutter test integration_test/onboarding_auth_journey_test.dart -d "$SIMULATOR_UDID"
-      - name: Launch built app and capture running simulator proof
+      - name: Capture real app screenshot series from the iOS simulator
         script: |
           mkdir -p build/ios-simulator/screenshots
-          xcrun simctl install "$SIMULATOR_UDID" build/ios/iphonesimulator/Runner.app
-          xcrun simctl launch "$SIMULATOR_UDID" "$BUNDLE_ID"
-          sleep 5
-          xcrun simctl io "$SIMULATOR_UDID" screenshot build/ios-simulator/screenshots/configuration.png
+          flutter drive \
+            --driver=test_driver/integration_test.dart \
+            --target=integration_test/app_store_screenshots_test.dart \
+            -d "$SIMULATOR_UDID"
+          test "$(find build/ios-simulator/screenshots -name '*.png' | wc -l | tr -d ' ')" -eq 5
     artifacts:
       - build/ios/iphonesimulator/Runner.app/**
       - build/ios-native-tests/Logs/Test/*.xcresult
