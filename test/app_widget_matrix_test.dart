@@ -79,7 +79,7 @@ void main() {
           find.byKey(const ValueKey('auth_password')),
           'StrongPass!42',
         );
-        await tester.tap(find.text('CREATE ACCOUNT'));
+        await tester.tap(find.byKey(const ValueKey('auth_submit')));
         await tester.pumpAndSettle();
         verify(() => repository.signUp('reviewer@svnly.app', 'StrongPass!42'))
             .called(1);

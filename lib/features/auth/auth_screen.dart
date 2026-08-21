@@ -160,6 +160,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                 const SizedBox(height: 14),
                 FilledButton(
+                  key: const ValueKey('auth_submit'),
                   onPressed: loading ? null : _submit,
                   child: loading
                       ? const SizedBox.square(

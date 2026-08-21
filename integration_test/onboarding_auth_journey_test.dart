@@ -67,7 +67,12 @@ void main() {
       find.byKey(const ValueKey('auth_password')),
       'ReviewReady!42',
     );
-    await tester.tap(find.text('CREATE ACCOUNT'));
+    await tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    final submitButton = find.byKey(const ValueKey('auth_submit'));
+    await tester.ensureVisible(submitButton);
+    await tester.pumpAndSettle();
+    await tester.tap(submitButton);
     await tester.pumpAndSettle();
     verify(
       () => repository.signUp('appreview+primary@svnly.app', 'ReviewReady!42'),
