@@ -64,6 +64,9 @@ workflows:
     environment:
       <<: *common_environment
       ios_signing:
+        provisioning_profiles:
+          - profile: gosafehome-app-store-profile
+            environment_variable: SVNLY_BOOTSTRAP_PROFILE_PATH
         certificates:
           - certificate: gosafehome-distribution
             environment_variable: SVNLY_DISTRIBUTION_CERTIFICATE_PATH
@@ -96,6 +99,7 @@ workflows:
             --certificate-key "@file:$CERTIFICATE_KEY" \
             --create \
             --delete-stale-profiles
+          rm -f -- "$SVNLY_BOOTSTRAP_PROFILE_PATH"
       - name: Configure Xcode for Ad Hoc signing
         script: xcode-project use-profiles
       - name: Build signed direct-install IPA
