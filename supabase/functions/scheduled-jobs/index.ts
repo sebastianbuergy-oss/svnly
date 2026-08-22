@@ -42,9 +42,13 @@ Deno.serve(async (request) => {
       if (await callInternal('moderate-take', {takeId: take.id})) moderationStarted++;
     }
 
-    const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
+    // The Free plan includes 1 GiB of file storage. Keep a deterministic
+    // 21-day ceiling even when a user has not selected auto-delete, while
+    // still honouring any shorter user-selected retention period.
+    const freeTierRetentionDays = 21;
+    const cutoff = new Date(Date.now() - freeTierRetentionDays * 86400000).toISOString();
     const {data: settings, error: settingsError} = await admin.from('user_settings')
-      .select('user_id,auto_delete_days').not('auto_delete_days', 'is', null);
+      .select('user_id,auto_delete_days');
     if (settingsError) throw settingsError;
     const deletionDays = new Map((settings ?? []).map((item) =>
       [item.user_id as string, Number(item.auto_delete_days)]));
@@ -57,8 +61,9 @@ Deno.serve(async (request) => {
     if (expiredError) throw expiredError;
     let mediaDeleted = 0;
     for (const take of expiredTakes ?? []) {
-      const days = deletionDays.get(take.user_id as string) ?? 0;
-      if (!days || new Date(take.created_at).getTime() > Date.now() - days * 86400000) continue;
+      const requestedDays = deletionDays.get(take.user_id as string);
+      const days = Math.min(requestedDays ?? freeTierRetentionDays, freeTierRetentionDays);
+      if (new Date(take.created_at).getTime() > Date.now() - days * 86400000) continue;
       if (take.storage_path) await admin.storage.from('takes').remove([take.storage_path]);
       if (take.thumbnail_path) await admin.storage.from('take-thumbnails').remove([take.thumbnail_path]);
       await admin.storage.from('moderation-artifacts').remove([

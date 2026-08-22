@@ -4,6 +4,12 @@
 
 SVNLY is an iPhone-first social video app built with Flutter and Supabase. Every user receives the same daily challenge, records exactly seven seconds in-app, and unlocks the day’s feed only after participating. There is no gallery import and no voluntary retake; a retry is issued only after a server-verified technical failure.
 
+## Zero-cost backend envelope
+
+The test deployment targets a separate Supabase Free organization. The provider's current hard limits are 500 MB database size, 1 GB file storage, 5 GB uncached plus 5 GB cached monthly egress, 500,000 Edge Function invocations, 2 million Realtime messages, 200 peak Realtime connections, and 50 MB per uploaded file. Free projects may pause after a week of inactivity.
+
+SVNLY stays well below the per-file ceiling with a 12 MiB private-video limit. The database serializes upload reservations and stops accepting new videos at 768 MiB of active/reserved video metadata, leaving storage headroom for thumbnails, avatars and moderation artifacts. The scheduled cleanup enforces at most 21 days of video retention, or a shorter user-selected retention period. Supabase Free has no paid overage path, so provider quotas fail closed instead of generating usage charges.
+
 ## Repository map
 
 - `lib/` — Flutter app, Riverpod state, GoRouter navigation, auth, camera, feed, social, rankings, settings, Plus and admin UI.
