@@ -10,6 +10,29 @@ definitions:
       LEGAL_BASE_URL: https://svnly.sebastian-buergy.chatgpt.site
     groups:
       - svnly_production
+  production_config_gate: &production_config_gate
+    name: Validate public Supabase production configuration
+    script: |
+      set -euo pipefail
+      missing=()
+      for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+        if [ -z "${!name:-}" ]; then
+          missing+=("$name")
+        fi
+      done
+      if [ "${#missing[@]}" -gt 0 ]; then
+        echo "Production build blocked: missing ${missing[*]}"
+        exit 1
+      fi
+      if [[ "$SUPABASE_URL" != https://* ]] || [[ "$SUPABASE_URL" == *YOUR_PROJECT* ]]; then
+        echo "Production build blocked: SUPABASE_URL is not a valid HTTPS production URL."
+        exit 1
+      fi
+      if [[ "$SUPABASE_PUBLISHABLE_KEY" != sb_publishable_* ]]; then
+        echo "Production build blocked: SUPABASE_PUBLISHABLE_KEY must be a Supabase publishable key."
+        exit 1
+      fi
+      echo "Public Supabase production configuration is present."
   checks: &quality_checks
     - name: Resolve Flutter dependencies
       script: flutter pub get
@@ -71,6 +94,7 @@ workflows:
           - certificate: gosafehome-distribution
             environment_variable: SVNLY_DISTRIBUTION_CERTIFICATE_PATH
     scripts:
+      - *production_config_gate
       - name: Resolve Flutter and CocoaPods dependencies
         script: |
           flutter pub get
@@ -271,6 +295,7 @@ workflows:
           - certificate: gosafehome-distribution
             environment_variable: SVNLY_DISTRIBUTION_CERTIFICATE_PATH
     scripts:
+      - *production_config_gate
       - name: Resolve Flutter and CocoaPods dependencies
         script: |
           flutter pub get
