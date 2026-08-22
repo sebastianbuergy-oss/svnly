@@ -55,6 +55,78 @@ definitions:
         pnpm test
 
 workflows:
+  svnly-ios-device:
+    name: SVNLY direct iPhone Ad Hoc build
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic
+    environment:
+      <<: *common_environment
+      ios_signing:
+        certificates:
+          - certificate: gosafehome-distribution
+            environment_variable: SVNLY_DISTRIBUTION_CERTIFICATE_PATH
+    scripts:
+      - name: Resolve Flutter and CocoaPods dependencies
+        script: |
+          flutter pub get
+          cd ios && pod install --repo-update
+      - name: Verify registered physical iPhone
+        script: python3 tool/verify_registered_iphone.py
+      - name: Fetch or create Ad Hoc signing profile
+        script: |
+          set -euo pipefail
+          CERTIFICATE_KEY="$(mktemp)"
+          trap 'rm -f "$CERTIFICATE_KEY"' EXIT
+          if ! openssl pkcs12 \
+            -in "$SVNLY_DISTRIBUTION_CERTIFICATE_PATH" \
+            -nodes \
+            -nocerts \
+            -passin "pass:${CM_CERTIFICATE_PASSWORD:-}" 2>/dev/null \
+            | openssl pkey -out "$CERTIFICATE_KEY" 2>/dev/null; then
+            openssl pkey \
+              -in "$SVNLY_DISTRIBUTION_CERTIFICATE_PATH" \
+              -out "$CERTIFICATE_KEY"
+          fi
+          chmod 600 "$CERTIFICATE_KEY"
+          app-store-connect fetch-signing-files \
+            "$BUNDLE_ID" \
+            --type IOS_APP_ADHOC \
+            --certificate-key "@file:$CERTIFICATE_KEY" \
+            --create \
+            --delete-stale-profiles
+      - name: Configure Xcode for Ad Hoc signing
+        script: xcode-project use-profiles
+      - name: Build signed direct-install IPA
+        script: |
+          flutter build ipa --release \
+            --build-number="$CM_BUILD_NUMBER" \
+            --dart-define=APP_ENV="$APP_ENV" \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define=REVENUECAT_IOS_API_KEY="$REVENUECAT_IOS_API_KEY" \
+            --dart-define=LEGAL_BASE_URL="$LEGAL_BASE_URL" \
+            --export-options-plist=/Users/builder/export_options.plist
+      - name: Verify IPA uses Ad Hoc provisioning
+        script: |
+          set -euo pipefail
+          IPA_PATH="$(find build/ios/ipa -name '*.ipa' -print -quit)"
+          test -n "$IPA_PATH"
+          VERIFY_DIR="$(mktemp -d)"
+          trap 'rm -rf "$VERIFY_DIR"' EXIT
+          unzip -q "$IPA_PATH" -d "$VERIFY_DIR"
+          PROFILE_PATH="$(find "$VERIFY_DIR/Payload" -name embedded.mobileprovision -print -quit)"
+          test -n "$PROFILE_PATH"
+          security cms -D -i "$PROFILE_PATH" > "$VERIFY_DIR/profile.plist"
+          /usr/libexec/PlistBuddy -c 'Print :ProvisionsAllDevices' "$VERIFY_DIR/profile.plist" >/dev/null 2>&1 && exit 1 || true
+          DEVICE_COUNT=$(/usr/libexec/PlistBuddy -c 'Print :ProvisionedDevices' "$VERIFY_DIR/profile.plist" | grep -c '^    ')
+          test "$DEVICE_COUNT" -gt 0
+          echo "Verified Ad Hoc IPA with $DEVICE_COUNT provisioned device(s)."
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/archive/*.xcarchive
+
   svnly-testflight-internal:
     name: SVNLY internal TestFlight distribution
     instance_type: mac_mini_m2
