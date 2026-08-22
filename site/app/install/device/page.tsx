@@ -23,6 +23,15 @@ export default function DeviceInstallPage() {
             and confirm the system installation prompt.
           </p>
           <a className="cta" href={installUrl}>INSTALL SVNLY <b>↓</b></a>
+          <div className="device-install__qr">
+            <img
+              src="/install/svnly-device-qr.png"
+              alt="QR code for the SVNLY iPhone installation page"
+              width="220"
+              height="220"
+            />
+            <p>SCAN WITH THE REGISTERED IPHONE</p>
+          </div>
           <div className="install-notes">
             <p><strong>Build:</strong> 1.0.0 · Ad Hoc · signed by Apple Distribution</p>
             <p><strong>Availability:</strong> The secured build link expires September 5, 2026.</p>
