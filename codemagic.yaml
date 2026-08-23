@@ -56,7 +56,7 @@ definitions:
       grep -q "auth_google" lib/features/auth/auth_screen.dart
       mkdir -p build
       printf 'commit=%s\nbuild=%s\nbranch=%s\nbundle_id=%s\n' \
-        "$HEAD_SHA" "$CM_BUILD_NUMBER" "$CM_BRANCH" "$BUNDLE_ID" \
+        "$HEAD_SHA" "$BUILD_NUMBER" "$CM_BRANCH" "$BUNDLE_ID" \
         > build/release-identity.txt
       cat build/release-identity.txt
   checks: &quality_checks
@@ -186,14 +186,14 @@ workflows:
       - name: Build signed direct-install IPA
         script: |
           flutter build ipa --release \
-            --build-number="$CM_BUILD_NUMBER" \
+            --build-number="$BUILD_NUMBER" \
             --dart-define=APP_ENV="$APP_ENV" \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             --dart-define=REVENUECAT_IOS_API_KEY="$REVENUECAT_IOS_API_KEY" \
             --dart-define=LEGAL_BASE_URL="$LEGAL_BASE_URL" \
             --dart-define=GIT_COMMIT_SHA="$CM_COMMIT" \
-            --dart-define=APP_BUILD_NUMBER="$CM_BUILD_NUMBER" \
+            --dart-define=APP_BUILD_NUMBER="$BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
       - name: Verify IPA uses Ad Hoc provisioning
         script: |

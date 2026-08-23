@@ -47,4 +47,7 @@ test("device and release builds import production config and fail closed", () =>
     "Apple capability must be enabled before the Ad Hoc profile is generated",
   );
   assert.match(device, /build\/release-identity\.txt/);
+  assert.match(device, /--build-number="\$BUILD_NUMBER"/);
+  assert.match(device, /--dart-define=APP_BUILD_NUMBER="\$BUILD_NUMBER"/);
+  assert.doesNotMatch(device, /CM_BUILD_NUMBER/);
 });
