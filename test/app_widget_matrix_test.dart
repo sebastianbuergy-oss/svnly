@@ -67,6 +67,7 @@ void main() {
         find.byKey(const ValueKey('auth_password')),
         'short',
       );
+      await tester.ensureVisible(find.byKey(const ValueKey('auth_submit')));
       await tester.tap(find.text('LOG IN'));
       await tester.pump();
       expect(find.text('Enter a valid email.'), findsOneWidget);
@@ -90,6 +91,7 @@ void main() {
           find.byKey(const ValueKey('auth_password')),
           'StrongPass!42',
         );
+        await tester.ensureVisible(find.byKey(const ValueKey('auth_submit')));
         await tester.tap(find.byKey(const ValueKey('auth_submit')));
         await tester.pumpAndSettle();
         verify(() => repository.signUp('reviewer@svnly.app', 'StrongPass!42'))
