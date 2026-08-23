@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../app/providers.dart';
+import '../../core/config/build_identity.dart';
 import '../../core/design/tokens.dart';
 import '../../core/errors/error_mapper.dart';
 import '../../core/widgets/brand.dart';
@@ -50,10 +51,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         final complete = await repository.hasCompletedProfile();
         if (mounted) context.go(complete ? '/home' : '/profile-setup');
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(ErrorMapper.message(error))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorMapper.authMessage('email', error, stackTrace)),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => loading = false);
@@ -67,10 +71,37 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       await repository.signInWithApple();
       final complete = await repository.hasCompletedProfile();
       if (mounted) context.go(complete ? '/home' : '/profile-setup');
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(ErrorMapper.message(error))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorMapper.authMessage('apple', error, stackTrace)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _google() async {
+    setState(() => loading = true);
+    try {
+      final repository = ref.read(appRepositoryProvider);
+      final sessionReady = repository.sessionChanges
+          .firstWhere((hasSession) => hasSession)
+          .timeout(const Duration(minutes: 3));
+      await repository.signInWithGoogle();
+      await sessionReady;
+      final complete = await repository.hasCompletedProfile();
+      if (mounted) context.go(complete ? '/home' : '/profile-setup');
+    } catch (error, stackTrace) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorMapper.authMessage('google', error, stackTrace)),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => loading = false);
@@ -107,7 +138,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               ),
               if (!verificationSent) ...[
                 const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('auth_google'),
+                    onPressed: loading ? null : _google,
+                    icon: const Text(
+                      'G',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    label: const Text('CONTINUE WITH GOOGLE'),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 SignInWithAppleButton(
+                  key: const ValueKey('auth_apple'),
                   onPressed: loading ? () {} : _apple,
                   height: 54,
                   borderRadius: const BorderRadius.all(Radius.circular(14)),
@@ -175,6 +224,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       : () => setState(() => signUp = !signUp),
                   child: Text(
                     signUp ? 'I already have an account' : 'Create an account',
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  BuildIdentity.label,
+                  key: const ValueKey('build_identity'),
+                  style: const TextStyle(
+                    color: SvnlyColors.secondaryText,
+                    fontSize: 12,
                   ),
                 ),
               ] else

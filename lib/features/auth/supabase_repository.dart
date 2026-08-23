@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -26,11 +25,17 @@ class SupabaseAppRepository implements AppRepository {
 
   @override
   Future<void> signUp(String email, String password) async {
-    await _client.auth.signUp(
+    final response = await _client.auth.signUp(
       email: email.trim(),
       password: password,
       emailRedirectTo: 'svnly://auth/callback',
     );
+    if (response.user == null) {
+      throw const AuthException(
+        'Supabase did not return a user after sign-up.',
+        code: 'signup_user_missing',
+      );
+    }
   }
 
   @override
@@ -43,7 +48,7 @@ class SupabaseAppRepository implements AppRepository {
 
   @override
   Future<void> signInWithApple() async {
-    final rawNonce = _secureNonce();
+    final rawNonce = _client.auth.generateRawNonce();
     final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
     final credential = await SignInWithApple.getAppleIDCredential(
       scopes: const [
@@ -54,23 +59,37 @@ class SupabaseAppRepository implements AppRepository {
     );
     final identityToken = credential.identityToken;
     if (identityToken == null || identityToken.isEmpty) {
-      throw const AuthException('Apple did not return an identity token.');
+      throw const AuthException(
+        'Apple did not return an identity token.',
+        code: 'apple_identity_token_missing',
+      );
     }
-    await _client.auth.signInWithIdToken(
+    final response = await _client.auth.signInWithIdToken(
       provider: OAuthProvider.apple,
       idToken: identityToken,
       nonce: rawNonce,
     );
+    if (response.user == null || response.session == null) {
+      throw const AuthException(
+        'Supabase did not create an Apple session.',
+        code: 'apple_session_missing',
+      );
+    }
   }
 
-  String _secureNonce([int length = 32]) {
-    const alphabet =
-        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
-    final random = Random.secure();
-    return List.generate(
-      length,
-      (_) => alphabet[random.nextInt(alphabet.length)],
-    ).join();
+  @override
+  Future<void> signInWithGoogle() async {
+    final launched = await _client.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: 'svnly://auth/callback',
+      authScreenLaunchMode: LaunchMode.externalApplication,
+    );
+    if (!launched) {
+      throw const AuthException(
+        'The Google authorization page could not be opened.',
+        code: 'google_oauth_launch_failed',
+      );
+    }
   }
 
   @override

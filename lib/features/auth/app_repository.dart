@@ -10,6 +10,7 @@ abstract interface class AppRepository {
   Future<void> signUp(String email, String password);
   Future<void> signIn(String email, String password);
   Future<void> signInWithApple();
+  Future<void> signInWithGoogle();
   Future<void> resetPassword(String email);
   Future<void> signOut();
   Future<bool> hasCompletedProfile();
@@ -162,6 +163,8 @@ class UnconfiguredRepository implements AppRepository {
   Future<void> signIn(String email, String password) async => _missing();
   @override
   Future<void> signInWithApple() async => _missing();
+  @override
+  Future<void> signInWithGoogle() async => _missing();
   @override
   Future<void> signOut() async => _missing();
   @override

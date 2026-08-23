@@ -33,6 +33,32 @@ definitions:
         exit 1
       fi
       echo "Public Supabase production configuration is present."
+  release_identity_gate: &release_identity_gate
+    name: Verify main commit and auth release contract
+    script: |
+      set -euo pipefail
+      HEAD_SHA="$(git rev-parse HEAD)"
+      if [ "$CM_BRANCH" != "main" ]; then
+        echo "Device build blocked: expected main, got $CM_BRANCH."
+        exit 1
+      fi
+      if [ "$HEAD_SHA" != "$CM_COMMIT" ]; then
+        echo "Device build blocked: checkout $HEAD_SHA differs from Codemagic commit $CM_COMMIT."
+        exit 1
+      fi
+      grep -q 'PRODUCT_BUNDLE_IDENTIFIER = ch.sebastianbuergy.svnly;' ios/Runner.xcodeproj/project.pbxproj
+      /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' ios/Runner/RunnerRelease.entitlements \
+        | grep -qx 'Default'
+      grep -q "generateRawNonce()" lib/features/auth/supabase_repository.dart
+      grep -q "nonce: hashedNonce" lib/features/auth/supabase_repository.dart
+      grep -q "provider: OAuthProvider.apple" lib/features/auth/supabase_repository.dart
+      grep -q "nonce: rawNonce" lib/features/auth/supabase_repository.dart
+      grep -q "auth_google" lib/features/auth/auth_screen.dart
+      mkdir -p build
+      printf 'commit=%s\nbuild=%s\nbranch=%s\nbundle_id=%s\n' \
+        "$HEAD_SHA" "$CM_BUILD_NUMBER" "$CM_BRANCH" "$BUNDLE_ID" \
+        > build/release-identity.txt
+      cat build/release-identity.txt
   checks: &quality_checks
     - name: Resolve Flutter dependencies
       script: flutter pub get
@@ -95,12 +121,43 @@ workflows:
             environment_variable: SVNLY_DISTRIBUTION_CERTIFICATE_PATH
     scripts:
       - *production_config_gate
+      - *release_identity_gate
       - name: Resolve Flutter and CocoaPods dependencies
         script: |
           flutter pub get
           cd ios && pod install --repo-update
+      - name: Prove auth UI, diagnostics and native Apple contract
+        script: |
+          flutter analyze lib/features/auth lib/core/errors lib/core/config/build_identity.dart
+          flutter test test/error_mapper_test.dart test/app_widget_matrix_test.dart
+          node --test tool/test/codemagic_production_config.test.mjs
       - name: Verify registered physical iPhone
         script: python3 tool/verify_registered_iphone.py
+      - name: Enable Sign in with Apple before Ad Hoc provisioning
+        script: |
+          set -euo pipefail
+          BUNDLE_JSON="$(
+            app-store-connect bundle-ids list --json \
+              --bundle-id-identifier "$BUNDLE_ID" \
+              --strict-match-identifier
+          )"
+          BUNDLE_RESOURCE_ID="$(
+            printf '%s' "$BUNDLE_JSON" | node -e '
+              let input = "";
+              process.stdin.setEncoding("utf8");
+              process.stdin.on("data", chunk => input += chunk);
+              process.stdin.on("end", () => {
+                const parsed = JSON.parse(input);
+                const rows = Array.isArray(parsed) ? parsed : parsed.data;
+                if (!Array.isArray(rows) || rows.length !== 1 || !rows[0].id) {
+                  process.exit(1);
+                }
+                process.stdout.write(rows[0].id);
+              });
+            '
+          )"
+          test -n "$BUNDLE_RESOURCE_ID"
+          python3 tool/enable_apple_sign_in.py "$BUNDLE_RESOURCE_ID"
       - name: Fetch or create Ad Hoc signing profile
         script: |
           set -euo pipefail
@@ -135,6 +192,8 @@ workflows:
             --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             --dart-define=REVENUECAT_IOS_API_KEY="$REVENUECAT_IOS_API_KEY" \
             --dart-define=LEGAL_BASE_URL="$LEGAL_BASE_URL" \
+            --dart-define=GIT_COMMIT_SHA="$CM_COMMIT" \
+            --dart-define=APP_BUILD_NUMBER="$CM_BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
       - name: Verify IPA uses Ad Hoc provisioning
         script: |
@@ -147,13 +206,22 @@ workflows:
           PROFILE_PATH="$(find "$VERIFY_DIR/Payload" -name embedded.mobileprovision -print -quit)"
           test -n "$PROFILE_PATH"
           security cms -D -i "$PROFILE_PATH" > "$VERIFY_DIR/profile.plist"
+          APP_PATH="$(find "$VERIFY_DIR/Payload" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$APP_PATH"
+          APP_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")
+          test "$APP_BUNDLE_ID" = "$BUNDLE_ID"
+          codesign -d --entitlements :- "$APP_PATH" > "$VERIFY_DIR/app-entitlements.plist" 2>/dev/null
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' "$VERIFY_DIR/app-entitlements.plist" \
+            | grep -qx 'Default'
           /usr/libexec/PlistBuddy -c 'Print :ProvisionsAllDevices' "$VERIFY_DIR/profile.plist" >/dev/null 2>&1 && exit 1 || true
           DEVICE_COUNT=$(/usr/libexec/PlistBuddy -c 'Print :ProvisionedDevices' "$VERIFY_DIR/profile.plist" | grep -c '^    ')
           test "$DEVICE_COUNT" -gt 0
           echo "Verified Ad Hoc IPA with $DEVICE_COUNT provisioned device(s)."
+          echo "Verified bundle $APP_BUNDLE_ID and Sign in with Apple entitlement."
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/archive/*.xcarchive
+      - build/release-identity.txt
 
   svnly-testflight-internal:
     name: SVNLY internal TestFlight distribution
@@ -430,6 +498,8 @@ workflows:
             --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             --dart-define=REVENUECAT_IOS_API_KEY="$REVENUECAT_IOS_API_KEY" \
             --dart-define=LEGAL_BASE_URL="$LEGAL_BASE_URL" \
+            --dart-define=GIT_COMMIT_SHA="$CM_COMMIT" \
+            --dart-define=APP_BUILD_NUMBER="$SVNLY_BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa

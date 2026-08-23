@@ -17,6 +17,7 @@ test("device and release builds import production config and fail closed", () =>
   assert.match(yaml, /production_config_gate: &production_config_gate/);
   assert.match(yaml, /for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY/);
   assert.match(yaml, /SUPABASE_PUBLISHABLE_KEY.*sb_publishable_/s);
+  assert.match(yaml, /release_identity_gate: &release_identity_gate/);
 
   const device = workflow("svnly-ios-device", "svnly-testflight-internal");
   const simulator = workflow("svnly-ios-simulator", "svnly-tests");
@@ -31,6 +32,19 @@ test("device and release builds import production config and fail closed", () =>
     assert.ok(build > gate, `${name} workflow must validate config before building`);
     assert.match(config, /--dart-define=SUPABASE_URL="\$SUPABASE_URL"/);
     assert.match(config, /--dart-define=SUPABASE_PUBLISHABLE_KEY="\$SUPABASE_PUBLISHABLE_KEY"/);
+    assert.match(config, /--dart-define=GIT_COMMIT_SHA="\$CM_COMMIT"/);
+    assert.match(config, /--dart-define=APP_BUILD_NUMBER=/);
     assert.doesNotMatch(config, /--dart-define=SUPABASE_SERVICE_ROLE_KEY/);
   }
+
+  assert.match(yaml, /CM_BRANCH.*main/);
+  assert.match(yaml, /CM_COMMIT/);
+  assert.match(yaml, /com\.apple\.developer\.applesignin/);
+  assert.match(yaml, /auth_google/);
+  assert.match(device, /Enable Sign in with Apple before Ad Hoc provisioning/);
+  assert.ok(
+    device.indexOf("enable_apple_sign_in.py") < device.indexOf("--type IOS_APP_ADHOC"),
+    "Apple capability must be enabled before the Ad Hoc profile is generated",
+  );
+  assert.match(device, /build\/release-identity\.txt/);
 });

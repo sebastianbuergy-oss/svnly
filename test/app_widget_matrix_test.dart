@@ -43,6 +43,17 @@ void main() {
   setUp(() => repository = MockRepository());
 
   group('authentication widgets', () {
+    testWidgets('production login exposes Google, Apple and build identity', (
+      tester,
+    ) async {
+      await tester.pumpWidget(harness(const AuthScreen(), repository));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('auth_google')), findsOneWidget);
+      expect(find.text('CONTINUE WITH GOOGLE'), findsOneWidget);
+      expect(find.byKey(const ValueKey('auth_apple')), findsOneWidget);
+      expect(find.byKey(const ValueKey('build_identity')), findsOneWidget);
+    });
+
     testWidgets('invalid credentials are rejected before repository call', (
       tester,
     ) async {

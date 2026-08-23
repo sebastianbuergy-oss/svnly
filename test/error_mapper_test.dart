@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:svnly/core/errors/error_mapper.dart';
 
 void main() {
-  test('maps authentication failures without leaking backend detail', () {
+  test('maps authentication failures and preserves technical detail', () {
     expect(
       ErrorMapper.message(const AuthException('Invalid login credentials')),
       'Email or password is incorrect.',
@@ -16,8 +16,24 @@ void main() {
       'This email is already registered.',
     );
     expect(
-      ErrorMapper.message(const AuthException('Internal auth detail')),
+      ErrorMapper.message(
+        const AuthException(
+          'Apple token audience is invalid.',
+          statusCode: '400',
+          code: 'bad_jwt',
+        ),
+      ),
       'Authentication could not be completed.',
+    );
+    expect(
+      ErrorMapper.technicalCode(
+        const AuthException(
+          'Apple token audience is invalid.',
+          statusCode: '400',
+          code: 'bad_jwt',
+        ),
+      ),
+      'supabase.bad_jwt',
     );
   });
 
