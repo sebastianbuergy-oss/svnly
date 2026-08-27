@@ -192,7 +192,9 @@ final class LiveLookVideoProcessor {
 
     guard let exporter = AVAssetExportSession(
       asset: asset,
-      presetName: AVAssetExportPresetHighestQuality
+      // Seven seconds must reliably remain below the 12 MiB take-bucket cap,
+      // including on modern iPhones whose high preset can exceed it.
+      presetName: AVAssetExportPreset1280x720
     ) else {
       completion(.failure(LiveLookVideoProcessorError.exportUnavailable))
       return

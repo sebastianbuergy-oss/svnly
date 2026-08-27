@@ -23,6 +23,7 @@ enum CaptureStage {
   countdown,
   recording,
   processing,
+  queued,
   done,
   failed,
 }
@@ -185,6 +186,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         look: look,
       );
       final bytes = await processed.file.readAsBytes();
+      var uploaded = false;
       try {
         await ref
             .read(appRepositoryProvider)
@@ -194,6 +196,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               durationMs: duration,
               look: look,
             );
+        uploaded = true;
       } catch (_) {
         await PendingUploadStore.persist(
           source: processed.file,
@@ -209,7 +212,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       }
       ref.invalidate(hasTakeTodayProvider);
       ref.invalidate(currentChallengeProvider);
-      if (mounted) setState(() => stage = CaptureStage.done);
+      if (mounted) {
+        setState(
+          () => stage = uploaded ? CaptureStage.done : CaptureStage.queued,
+        );
+      }
     } catch (error) {
       await _technicalFailure('camera_or_recording_error');
       if (mounted) {
@@ -351,8 +358,36 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       CaptureStage.explanation => _permissionExplanation(),
       CaptureStage.failed => _failure(),
       CaptureStage.done => _done(),
+      CaptureStage.queued => _queued(),
       _ => _cameraView(),
     },
+  );
+
+  Widget _queued() => SafeArea(
+    minimum: const EdgeInsets.all(24),
+    child: Column(
+      children: [
+        IconButton(onPressed: context.pop, icon: const Icon(Icons.close)),
+        const Spacer(),
+        const Icon(
+          Icons.cloud_upload_outlined,
+          size: 72,
+          color: SvnlyColors.lime,
+        ),
+        const SizedBox(height: 24),
+        Text('Take saved', style: Theme.of(context).textTheme.headlineLarge),
+        const SizedBox(height: 12),
+        const Text(
+          'Your take is protected on this iPhone and will upload automatically when SVNLY starts with a connection. The feed unlocks after that upload finishes.',
+          textAlign: TextAlign.center,
+        ),
+        const Spacer(),
+        FilledButton(
+          onPressed: context.pop,
+          child: const Text('BACK TO TODAY'),
+        ),
+      ],
+    ),
   );
 
   Widget _permissionExplanation() => SafeArea(

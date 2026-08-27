@@ -6,9 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/app_repository.dart';
 import '../challenge/models.dart';
+import 'live_look_processor.dart';
 
 class PendingUploadStore {
   static const _metadataKey = 'pending_take_upload';
+  static const _maxUploadBytes = 12 * 1024 * 1024;
 
   static Future<void> persist({
     required File source,
@@ -50,12 +52,22 @@ class PendingUploadStore {
       expiresAt: DateTime.parse(value['expires_at'] as String),
       retryCount: value['retry_count'] as int,
     );
+    var uploadFile = file;
+    if (await file.length() > _maxUploadBytes) {
+      final recompressed = await LiveLookProcessor.burn(
+        source: file,
+        attemptId: '${attempt.id}-retry',
+        look: value['look'] as String,
+      );
+      uploadFile = recompressed.file;
+    }
     await repository.finalizeTake(
       attempt: attempt,
-      videoBytes: await file.readAsBytes(),
+      videoBytes: await uploadFile.readAsBytes(),
       durationMs: value['duration_ms'] as int,
       look: value['look'] as String,
     );
+    if (uploadFile.path != file.path) await uploadFile.delete();
     await file.delete();
     await preferences.remove(_metadataKey);
     return true;

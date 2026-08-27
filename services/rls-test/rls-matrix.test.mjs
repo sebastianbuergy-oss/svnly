@@ -81,6 +81,7 @@ async function applyMigrations() {
     '202608200004_admin_social_jobs.sql',
     '202608200005_rankings_streaks_views.sql',
     '202608210006_notification_outbox.sql',
+    '202608270010_finalize_unlock_and_retry.sql',
   ]) {
     await db.exec(await readFile(join(root, 'supabase', 'migrations', name), 'utf8'));
   }
@@ -202,4 +203,19 @@ test('anonymous role has no access to protected profile data', async () => {
   await db.exec('reset role; set role anon');
   await assert.rejects(() => db.query('select * from public.profiles'));
   await db.exec('reset role');
+});
+
+test('a finalized take unlocks the feed throughout moderation', async () => {
+  const attempt = '30000000-0000-4000-8000-000000000002';
+  await owner(`update public.take_attempts set status='upload_reserved',finalized_at=null where id='${attempt}'`);
+  await owner(`update public.takes set status='processing' where id='${ids.bobTake}'`);
+  let result = await asUser(ids.bob, 'select public.has_valid_take_today() unlocked');
+  assert.equal(result.rows[0].unlocked, false, 'a reservation alone must not unlock the feed');
+
+  await owner(`update public.take_attempts set status='finalized',finalized_at=now() where id='${attempt}'`);
+  for (const status of ['processing', 'under_review', 'rejected', 'published']) {
+    await owner(`update public.takes set status='${status}' where id='${ids.bobTake}'`);
+    result = await asUser(ids.bob, 'select public.has_valid_take_today() unlocked');
+    assert.equal(result.rows[0].unlocked, true, `finalized ${status} take must unlock the feed`);
+  }
 });
