@@ -59,3 +59,22 @@ test("landing page links every public policy and support route", async () => {
   }
   assert.match(html, /SVNLY — 7 seconds\. One take\. Be real\./);
 });
+
+test("device installer identifies Codemagic build 7", async () => {
+  const response = await render("/install/device");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Codemagic build 7/);
+  assert.match(html, /itms-services:\/\/\?action=download-manifest/);
+});
+
+test("OTA manifest targets the signed build 7 IPA", async () => {
+  const response = await render("/install/device/manifest.plist");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^application\/xml\b/i);
+
+  const manifest = await response.text();
+  assert.match(manifest, /https:\/\/api\.codemagic\.io\/artifacts\/\./);
+  assert.match(manifest, /<key>bundle-identifier<\/key>\s*<string>ch\.sebastianbuergy\.svnly<\/string>/);
+  assert.match(manifest, /<key>bundle-version<\/key>\s*<string>7<\/string>/);
+});

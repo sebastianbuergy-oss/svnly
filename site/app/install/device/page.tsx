@@ -33,7 +33,7 @@ export default function DeviceInstallPage() {
             <p>SCAN WITH THE REGISTERED IPHONE</p>
           </div>
           <div className="install-notes">
-            <p><strong>Build:</strong> 1.0.0 · Ad Hoc · signed by Apple Distribution</p>
+            <p><strong>Build:</strong> 1.0.0 · Codemagic build 7 · Ad Hoc · signed by Apple Distribution</p>
             <p><strong>Availability:</strong> The secured build link expires September 5, 2026.</p>
             <p><strong>Requirement:</strong> Installation works only on iPhones included in the provisioning profile.</p>
           </div>

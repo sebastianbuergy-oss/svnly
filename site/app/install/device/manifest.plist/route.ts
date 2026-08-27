@@ -1,5 +1,5 @@
 const IPA_URL =
-  "https://api.codemagic.io/artifacts/.eJwVwduSQzAAANB_6bsZKy7NYxW7bq1LEF4M3bq0ikpI4-t39pxDe_qnv_skarqEyFXREjM49zUq1N6-UiudBwEOcR57Y-lc2Yhz12iINslofn5fdlMmSpb5CcrWGCaovjnC6BTbPh-VNvOEmSzrVLrATXHKLL3ExvjTaABWziXkskV_3aGUufGmz2ATP1rtWF4ZLsGI2ReSZi5ENmiw0bNpi0wiVTNURKz7gKNj73OQnGJmdIoXQcQzKhoI7qfPhxUNzbu7z1XwCBEltZRuA1fx7pYgep_PlGg9FO4vexWZ7Tykl7bdApwGy-EPHuVbNw.T0QhTXshiAvxcMcMmSuYUz5w3c8";
+  "https://api.codemagic.io/artifacts/.eJwVwdtyQ0AAANB_yfvOuIfHZRd1abJUyr4YwlLEJe79-k7PuVTwnz61tuR1wzJRks3SC9r8LO3RLcDNGDg4LfWSZlXtYwyprooGrySFWB3PZLKvzw2w3Ix52VBjfxEClxXnYzWNsxbVZHr3rMC8Mza9atWfbcyxxw8SBl0nBvJgbbhgf5kJ952m81fDeSOwWHtsFGVhvcpyrt1UieTsxA5sXPE4Io4Hvv6-x-vuXSOyBaWa7PfOx9BHycyWgA1Es0KK6EdGogbJFsZKhuwdC5lCgWZE_eiFc7jLy1EsGBJw2r-zlNcm6PrLH6gMWGQ.TVoVv0xnNq7u43jx6kSZzCtC0vY";
 
 const manifest = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -38,7 +38,7 @@ const manifest = `<?xml version="1.0" encoding="UTF-8"?>
         <key>bundle-identifier</key>
         <string>ch.sebastianbuergy.svnly</string>
         <key>bundle-version</key>
-        <string>1.0.0</string>
+        <string>7</string>
         <key>kind</key>
         <string>software</string>
         <key>platform-identifier</key>
