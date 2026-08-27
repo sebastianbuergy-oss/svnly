@@ -82,6 +82,7 @@ async function applyMigrations() {
     '202608200005_rankings_streaks_views.sql',
     '202608210006_notification_outbox.sql',
     '202608270010_finalize_unlock_and_retry.sql',
+    '202608270011_participation_source_of_truth.sql',
   ]) {
     await db.exec(await readFile(join(root, 'supabase', 'migrations', name), 'utf8'));
   }
@@ -208,14 +209,74 @@ test('anonymous role has no access to protected profile data', async () => {
 test('a finalized take unlocks the feed throughout moderation', async () => {
   const attempt = '30000000-0000-4000-8000-000000000002';
   await owner(`update public.take_attempts set status='upload_reserved',finalized_at=null where id='${attempt}'`);
-  await owner(`update public.takes set status='processing' where id='${ids.bobTake}'`);
+  await owner(`update public.takes set status='processing',storage_path=null where id='${ids.bobTake}'`);
+  await owner(`update public.challenge_participations set status='uploading',completed_at=null where user_id='${ids.bob}' and challenge_id='${ids.challenge}'`);
   let result = await asUser(ids.bob, 'select public.has_valid_take_today() unlocked');
   assert.equal(result.rows[0].unlocked, false, 'a reservation alone must not unlock the feed');
 
   await owner(`update public.take_attempts set status='finalized',finalized_at=now() where id='${attempt}'`);
+  await owner(`update public.takes set storage_path='${ids.bob}/${attempt}/${ids.bobTake}/video.mp4' where id='${ids.bobTake}'`);
   for (const status of ['processing', 'under_review', 'rejected', 'published']) {
     await owner(`update public.takes set status='${status}' where id='${ids.bobTake}'`);
     result = await asUser(ids.bob, 'select public.has_valid_take_today() unlocked');
     assert.equal(result.rows[0].unlocked, true, `finalized ${status} take must unlock the feed`);
   }
+});
+
+test('recording upload and finalize atomically unlock participation without duplicate takes', async () => {
+  const user = '00000000-0000-4000-8000-000000000005';
+  const attempt = '30000000-0000-4000-8000-000000000005';
+  await owner(`insert into auth.users(id) values('${user}')`);
+  await owner(`insert into public.take_attempts(id,user_id,challenge_id,nonce,status,started_at)
+    values('${attempt}','${user}','${ids.challenge}','40000000-0000-4000-8000-000000000005','started',now())`);
+  const first = await asUser(user, `select public.reserve_take_upload('${attempt}','40000000-0000-4000-8000-000000000005',7000,1000,'Natural') id`);
+  const second = await asUser(user, `select public.reserve_take_upload('${attempt}','40000000-0000-4000-8000-000000000005',7000,1000,'Natural') id`);
+  assert.equal(first.rows[0].id, second.rows[0].id);
+  assert.equal((await owner(`select count(*)::integer count from public.takes where user_id='${user}' and challenge_id='${ids.challenge}'`)).rows[0].count, 1);
+  const take = first.rows[0].id;
+  const path = `${user}/${attempt}/${take}/video.mp4`;
+  await asUser(user, `insert into storage.objects(bucket_id,name,owner_id) values('takes','${path}','${user}')`);
+  await asUser(user, `select public.finalize_take('${take}','${attempt}','${path}',7000,1000)`);
+  assert.equal((await asUser(user, 'select public.has_valid_take_today() unlocked')).rows[0].unlocked, true);
+  const participation = await owner(`select status from public.challenge_participations where user_id='${user}' and challenge_id='${ids.challenge}'`);
+  assert.equal(participation.rows[0].status, 'completed');
+});
+
+test('lost finalize response and app termination reconcile uploaded storage into an unlocked take', async () => {
+  const user = '00000000-0000-4000-8000-000000000006';
+  const attempt = '30000000-0000-4000-8000-000000000006';
+  const take = '20000000-0000-4000-8000-000000000006';
+  const path = `${user}/${attempt}/${take}/video.mp4`;
+  await owner(`insert into auth.users(id) values('${user}')`);
+  await owner(`insert into public.take_attempts(id,user_id,challenge_id,nonce,status,started_at)
+    values('${attempt}','${user}','${ids.challenge}',gen_random_uuid(),'upload_reserved',now())`);
+  await owner(`insert into public.takes(id,user_id,challenge_id,attempt_id,duration_ms,file_size,status)
+    values('${take}','${user}','${ids.challenge}','${attempt}',7000,1000,'processing')`);
+  await asUser(user, `insert into storage.objects(bucket_id,name,owner_id) values('takes','${path}','${user}')`);
+  assert.equal((await asUser(user, 'select public.reconcile_today_participation() unlocked')).rows[0].unlocked, true);
+  const repaired = await owner(`select a.status attempt_status,t.status take_status,t.storage_path,p.status participation_status
+    from public.take_attempts a join public.takes t on t.attempt_id=a.id
+    join public.challenge_participations p on p.take_id=t.id where t.id='${take}'`);
+  assert.deepEqual(repaired.rows[0], {attempt_status: 'finalized', take_status: 'processing', storage_path: path, participation_status: 'completed'});
+  for (const status of ['processing', 'under_review', 'rejected']) {
+    await owner(`update public.takes set status='${status}' where id='${take}'`);
+    assert.equal((await asUser(user, 'select public.has_valid_take_today() unlocked')).rows[0].unlocked, true);
+  }
+});
+
+test('expired technical attempt without a take is automatically eligible for retry', async () => {
+  const user = '00000000-0000-4000-8000-000000000007';
+  const attempt = '30000000-0000-4000-8000-000000000007';
+  await owner(`insert into auth.users(id) values('${user}')`);
+  await owner(`insert into public.profiles(id,username,display_name,country_code) values('${user}','retry.user','Retry User','CH')`);
+  await owner(`update public.user_private set age_verified_at=now() where user_id='${user}'`);
+  await owner(`insert into public.terms_acceptances(user_id,document_type,version) values
+    ('${user}','terms','1'),('${user}','privacy','1'),('${user}','guidelines','1')`);
+  await owner(`insert into public.take_attempts(id,user_id,challenge_id,nonce,status,expires_at)
+    values('${attempt}','${user}','${ids.challenge}',gen_random_uuid(),'expired',now()-interval '1 minute')`);
+  const retry = await asUser(user, 'select * from public.issue_take_attempt()');
+  assert.equal(retry.rows.length, 1);
+  assert.equal(retry.rows[0].retry_count, 1);
+  const previous = await owner(`select status,technical_retry_granted from public.take_attempts where id='${attempt}'`);
+  assert.deepEqual(previous.rows[0], {status: 'technical_failure', technical_retry_granted: true});
 });

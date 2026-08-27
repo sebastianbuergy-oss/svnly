@@ -8,6 +8,7 @@ const requiredTables = <String>{
   'challenges',
   'take_attempts',
   'takes',
+  'challenge_participations',
   'take_metrics',
   'reactions',
   'comments',
