@@ -33,8 +33,8 @@ export default function DeviceInstallPage() {
             <p>SCAN WITH THE REGISTERED IPHONE</p>
           </div>
           <div className="install-notes">
-            <p><strong>Build:</strong> 1.0.0 · Codemagic build 12 · commit 6baff65 · Ad Hoc · signed by Apple Distribution</p>
-            <p><strong>Backend:</strong> Production · participation/feed compatibility fix aa4278e live</p>
+            <p><strong>Build:</strong> 1.0.0 · Codemagic build 13 · commit e6adf59 · Ad Hoc · signed by Apple Distribution</p>
+            <p><strong>Backend:</strong> Production · persistent private avatar Storage/RLS fix e6adf59 live</p>
             <p><strong>Requirement:</strong> Installation works only on iPhones included in the provisioning profile.</p>
           </div>
         </div>

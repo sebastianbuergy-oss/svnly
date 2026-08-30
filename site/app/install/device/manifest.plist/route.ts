@@ -1,5 +1,5 @@
 const IPA_URL =
-  "https://svnly.sebastian-buergy.chatgpt.site/install/SVNLY-build-12.ipa";
+  "https://svnly.sebastian-buergy.chatgpt.site/install/SVNLY-build-13.ipa";
 
 const manifest = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -38,7 +38,7 @@ const manifest = `<?xml version="1.0" encoding="UTF-8"?>
         <key>bundle-identifier</key>
         <string>ch.sebastianbuergy.svnly</string>
         <key>bundle-version</key>
-        <string>12</string>
+        <string>13</string>
         <key>kind</key>
         <string>software</string>
         <key>platform-identifier</key>
