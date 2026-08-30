@@ -40,7 +40,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       return;
     }
     try {
-      await PendingUploadStore.resume(repository);
+      if (await PendingUploadStore.resume(repository)) {
+        ref.invalidate(hasTakeTodayProvider);
+        ref.invalidate(myTakesProvider);
+      }
     } catch (_) {
       // The protected local take remains queued for the next authenticated launch.
     }

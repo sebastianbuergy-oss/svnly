@@ -56,4 +56,26 @@ void main() {
     expect(take.myReaction, isNull);
     expect(comment.isMine, isFalse);
   });
+
+  test('MyTake keeps owner-visible moderation and participation state', () {
+    final take = MyTake.fromJson({
+      'id': 'take-7',
+      'challenge_id': 'challenge-7',
+      'challenge_title': 'Show the chaos',
+      'challenge_date': '2026-08-30',
+      'video_url': 'https://example.test/take.mp4',
+      'take_status': 'under_review',
+      'participation_status': 'completed',
+      'reaction_count': 4,
+      'comment_count': 2,
+      'view_count': 19,
+      'created_at': '2026-08-30T10:00:00Z',
+      'is_today': true,
+    });
+
+    expect(take.isPlayable, isTrue);
+    expect(take.displayStatus, 'UNDER REVIEW');
+    expect(take.viewCount, 19);
+    expect(take.isToday, isTrue);
+  });
 }

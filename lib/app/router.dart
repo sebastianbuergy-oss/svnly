@@ -10,6 +10,7 @@ import '../features/onboarding/onboarding_screen.dart';
 import '../features/premium/premium_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/profile/profile_setup_screen.dart';
+import '../features/profile/edit_profile_screen.dart';
 import '../features/ranking/ranking_screen.dart';
 import '../features/settings/settings_details.dart';
 import '../features/settings/settings_screen.dart';
@@ -90,7 +91,7 @@ final routerProvider = Provider<GoRouter>(
       ),
       GoRoute(
         path: '/edit-profile',
-        builder: (context, state) => const ProfileSetupScreen(),
+        builder: (context, state) => const EditProfileScreen(),
       ),
       GoRoute(
         path: '/language',

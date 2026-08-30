@@ -10,6 +10,7 @@ import '../../core/design/effects.dart';
 import '../../core/domain/rules.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/widgets/brand.dart';
+import '../profile/my_take_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -51,6 +52,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onRefresh: () async {
           ref.invalidate(currentChallengeProvider);
           ref.invalidate(hasTakeTodayProvider);
+          ref.invalidate(myTakesProvider);
         },
         child: CustomScrollView(
           slivers: [
@@ -75,6 +77,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
               sliver: SliverList.list(
                 children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'YOOO 👀',
+                          style: Theme.of(context).textTheme.displayLarge
+                              ?.copyWith(fontSize: 48, height: .82),
+                        ),
+                      ),
+                      const StickerTag(
+                        label: 'BE REAL',
+                        color: SvnlyColors.hotPink,
+                        rotation: .06,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
                   challenge.when(
                     loading: () => const SizedBox(
                       height: 390,
@@ -148,7 +168,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   Localizations.localeOf(context).languageCode,
                                 ),
                                 style: Theme.of(context).textTheme.displayLarge
-                                    ?.copyWith(fontSize: 50, height: .96),
+                                    ?.copyWith(fontSize: 54, height: .88),
                               ),
                               if (item
                                   .description(
@@ -186,34 +206,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     label: Text(strings.take),
                                   ),
                                 ),
-                              ] else
+                              ] else ...[
                                 Container(
                                   padding: const EdgeInsets.all(20),
                                   decoration: BoxDecoration(
                                     gradient: SvnlyGradients.social,
                                     borderRadius: BorderRadius.circular(22),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: SvnlyColors.hotPink.withValues(
+                                          alpha: .3,
+                                        ),
+                                        blurRadius: 30,
+                                      ),
+                                    ],
                                   ),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.bolt,
-                                            color: Colors.white,
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Text(
-                                            strings.successTitle,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 22,
-                                            ),
-                                          ),
-                                        ],
+                                      StickerTag(
+                                        label: strings.successTitle,
+                                        color: SvnlyColors.lime,
                                       ),
-                                      const SizedBox(height: 10),
+                                      const SizedBox(height: 16),
                                       Text(strings.successBody),
                                       const SizedBox(height: 16),
                                       OutlinedButton(
@@ -230,6 +246,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     ],
                                   ),
                                 ),
+                                const SizedBox(height: 24),
+                                Text(
+                                  'MY TAKE',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .displayLarge
+                                      ?.copyWith(fontSize: 38, height: .9),
+                                ),
+                                const SizedBox(height: 12),
+                                ref
+                                    .watch(myTakesProvider)
+                                    .when(
+                                      loading: () => const SizedBox(
+                                        height: 180,
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      ),
+                                      error: (_, _) => OutlinedButton(
+                                        onPressed: () =>
+                                            ref.invalidate(myTakesProvider),
+                                        child: const Text('RELOAD MY TAKE'),
+                                      ),
+                                      data: (takes) {
+                                        final mine = takes
+                                            .where((take) => take.isToday)
+                                            .firstOrNull;
+                                        if (mine == null) {
+                                          return const Card(
+                                            child: Padding(
+                                              padding: EdgeInsets.all(20),
+                                              child: Text(
+                                                'Take received. Syncing the receipt…',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        return MyTakeCard(
+                                          take: mine,
+                                          onRefresh: () =>
+                                              ref.invalidate(myTakesProvider),
+                                        );
+                                      },
+                                    ),
+                              ],
                               const SizedBox(height: 22),
                               Row(
                                 children: [

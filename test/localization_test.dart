@@ -8,7 +8,7 @@ void main() {
     const english = AppStrings(Locale('en'));
 
     expect(german.take, contains('7 SEKUNDEN'));
-    expect(german.locked, contains('zuerst'));
+    expect(german.locked, contains('selber'));
     expect(english.take, contains('7 SECONDS'));
     expect(english.claim, '7 seconds. One take. Be real.');
   });

@@ -98,6 +98,66 @@ class FeedTake {
   final String? myReaction;
 }
 
+class MyTake {
+  const MyTake({
+    required this.challengeId,
+    required this.challengeTitle,
+    required this.challengeDate,
+    required this.status,
+    required this.participationStatus,
+    required this.reactionCount,
+    required this.commentCount,
+    required this.viewCount,
+    required this.createdAt,
+    required this.isToday,
+    this.id,
+    this.videoUrl,
+    this.thumbnailUrl,
+  });
+
+  factory MyTake.fromJson(Map<String, dynamic> json) => MyTake(
+    id: json['id'] as String?,
+    challengeId: json['challenge_id'] as String,
+    challengeTitle: json['challenge_title'] as String,
+    challengeDate: DateTime.parse(json['challenge_date'] as String),
+    videoUrl: json['video_url'] as String?,
+    thumbnailUrl: json['thumbnail_url'] as String?,
+    status: json['take_status'] as String? ?? 'uploading',
+    participationStatus: json['participation_status'] as String? ?? 'uploading',
+    reactionCount: (json['reaction_count'] as num?)?.toInt() ?? 0,
+    commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
+    viewCount: (json['view_count'] as num?)?.toInt() ?? 0,
+    createdAt: DateTime.parse(json['created_at'] as String),
+    isToday: json['is_today'] as bool? ?? false,
+  );
+
+  final String? id;
+  final String challengeId;
+  final String challengeTitle;
+  final DateTime challengeDate;
+  final String? videoUrl;
+  final String? thumbnailUrl;
+  final String status;
+  final String participationStatus;
+  final int reactionCount;
+  final int commentCount;
+  final int viewCount;
+  final DateTime createdAt;
+  final bool isToday;
+
+  bool get isPlayable => videoUrl?.isNotEmpty == true;
+  String get displayStatus => switch (status) {
+    'published' => 'LIVE',
+    'under_review' => 'UNDER REVIEW',
+    'processing' => 'PROCESSING',
+    'rejected' => 'REVIEWED',
+    _ =>
+      participationStatus == 'completed'
+          ? 'PROCESSING'
+          : participationStatus.toUpperCase().replaceAll('_', ' '),
+  };
+}
+
 class CommentItem {
   const CommentItem({
     required this.id,

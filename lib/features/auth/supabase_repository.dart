@@ -349,8 +349,84 @@ class SupabaseAppRepository implements AppRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> loadMyProfile() async =>
-      _map(await _client.rpc('get_my_profile'));
+  Future<Map<String, dynamic>> loadMyProfile() async {
+    final profile = _map(await _client.rpc('get_my_profile'));
+    final path = profile['avatar_path'] as String?;
+    if (path != null && path.isNotEmpty) {
+      profile['avatar_url'] = await _client.storage
+          .from('avatars')
+          .createSignedUrl(path, 600);
+    }
+    return profile;
+  }
+
+  @override
+  Future<List<MyTake>> loadMyTakes({int limit = 30}) async {
+    final response = await _client.rpc(
+      'get_my_takes',
+      params: {'p_limit': limit},
+    ) as List<dynamic>;
+    return Future.wait(
+      response.map((raw) async {
+        final json = Map<String, dynamic>.from(raw as Map);
+        final videoPath = json.remove('storage_path') as String?;
+        final thumbnailPath = json.remove('thumbnail_path') as String?;
+        if (videoPath != null && videoPath.isNotEmpty) {
+          json['video_url'] = await _client.storage
+              .from('takes')
+              .createSignedUrl(videoPath, 600);
+        }
+        if (thumbnailPath != null && thumbnailPath.isNotEmpty) {
+          json['thumbnail_url'] = await _client.storage
+              .from('take-thumbnails')
+              .createSignedUrl(thumbnailPath, 600);
+        }
+        return MyTake.fromJson(json);
+      }),
+    );
+  }
+
+  @override
+  Future<String> uploadAvatar(Uint8List imageBytes) async {
+    if (imageBytes.isEmpty || imageBytes.lengthInBytes > 5 * 1024 * 1024) {
+      throw StateError('Avatar is missing or exceeds the upload limit.');
+    }
+    final id = userId;
+    if (id == null) throw const AuthException('Authentication required.');
+    final path = '$id/avatar.jpg';
+    await _client.storage
+        .from('avatars')
+        .uploadBinary(
+          path,
+          imageBytes,
+          fileOptions: const FileOptions(
+            contentType: 'image/jpeg',
+            cacheControl: '3600',
+            upsert: true,
+          ),
+        );
+    return path;
+  }
+
+  @override
+  Future<void> updateProfile({
+    required String username,
+    required String displayName,
+    required String bio,
+    required String countryCode,
+    String? avatarPath,
+  }) async {
+    await _client.rpc(
+      'update_my_profile',
+      params: {
+        'p_username': username.trim(),
+        'p_display_name': displayName.trim(),
+        'p_bio': bio.trim(),
+        'p_country_code': countryCode,
+        'p_avatar_path': avatarPath,
+      },
+    );
+  }
 
   @override
   Future<void> updateSetting(String key, Object? value) async {

@@ -41,118 +41,139 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
         decoration: const BoxDecoration(gradient: SvnlyGradients.social),
       ),
     ),
-    body: SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'today', label: Text('TODAY')),
-                    ButtonSegment(value: 'all_time', label: Text('ALL TIME')),
-                  ],
-                  selected: {period},
-                  onSelectionChanged: (value) {
-                    period = value.first;
-                    _reload();
-                  },
-                ),
-                const SizedBox(height: 12),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'friends', label: Text('Friends')),
-                    ButtonSegment(value: 'country', label: Text('Country')),
-                    ButtonSegment(value: 'world', label: Text('World')),
-                  ],
-                  selected: {scope},
-                  onSelectionChanged: (value) {
-                    scope = value.first;
-                    _reload();
-                  },
-                ),
-              ],
+    body: NeonBackdrop(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'BRO IS\nCOOKING 🔥',
+                          style: Theme.of(context).textTheme.displayLarge
+                              ?.copyWith(fontSize: 39, height: .82),
+                        ),
+                      ),
+                      const StickerTag(
+                        label: 'FLEX IT',
+                        color: SvnlyColors.lime,
+                        rotation: .06,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'today', label: Text('TODAY')),
+                      ButtonSegment(value: 'all_time', label: Text('ALL TIME')),
+                    ],
+                    selected: {period},
+                    onSelectionChanged: (value) {
+                      period = value.first;
+                      _reload();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'friends', label: Text('Friends')),
+                      ButtonSegment(value: 'country', label: Text('Country')),
+                      ButtonSegment(value: 'world', label: Text('World')),
+                    ],
+                    selected: {scope},
+                    onSelectionChanged: (value) {
+                      scope = value.first;
+                      _reload();
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: rankings,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: OutlinedButton(
-                      onPressed: _reload,
-                      child: const Text('TRY AGAIN'),
-                    ),
-                  );
-                }
-                final items = snapshot.data ?? const [];
-                if (items.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(28),
-                      child: Text(
-                        AppStrings.of(context).noRanking,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium,
+            Expanded(
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: rankings,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: OutlinedButton(
+                        onPressed: _reload,
+                        child: const Text('TRY AGAIN'),
                       ),
-                    ),
-                  );
-                }
-                Map<String, dynamic>? current;
-                for (final item in items) {
-                  if (item['is_current_user'] == true) current = item;
-                }
-                final rest = items.skip(items.length >= 3 ? 3 : 0).toList();
-                return Column(
-                  children: [
-                    if (current != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-                        child: NeonBadge(
-                          label:
-                              '#${current['rank']} ${scope.toUpperCase()} 🌍 · ${AppStrings.of(context).flexIt}',
-                          color: SvnlyColors.orange,
-                          icon: Icons.bolt,
+                    );
+                  }
+                  final items = snapshot.data ?? const [];
+                  if (items.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: Text(
+                          AppStrings.of(context).noRanking,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.headlineMedium,
                         ),
                       ),
-                    if (items.length >= 3)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 18),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(child: _Podium(item: items[1], rank: 2)),
-                            const SizedBox(width: 8),
-                            Expanded(child: _Podium(item: items[0], rank: 1)),
-                            const SizedBox(width: 8),
-                            Expanded(child: _Podium(item: items[2], rank: 3)),
-                          ],
+                    );
+                  }
+                  Map<String, dynamic>? current;
+                  for (final item in items) {
+                    if (item['is_current_user'] == true) current = item;
+                  }
+                  final rest = items.skip(items.length >= 3 ? 3 : 0).toList();
+                  return Column(
+                    children: [
+                      if (current != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                          child: NeonBadge(
+                            label:
+                                '#${current['rank']} ${scope.toUpperCase()} 🌍 · ${AppStrings.of(context).flexIt}',
+                            color: SvnlyColors.orange,
+                            icon: Icons.bolt,
+                          ),
                         ),
-                      ),
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: () async => _reload(),
-                        child: ListView.separated(
-                          itemCount: rest.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 6),
-                          itemBuilder: (context, index) => _RankingRow(
-                            item: rest[index],
-                            fallbackRank: index + 4,
+                      if (items.length >= 3)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 18),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(child: _Podium(item: items[1], rank: 2)),
+                              const SizedBox(width: 8),
+                              Expanded(child: _Podium(item: items[0], rank: 1)),
+                              const SizedBox(width: 8),
+                              Expanded(child: _Podium(item: items[2], rank: 3)),
+                            ],
+                          ),
+                        ),
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: () async => _reload(),
+                          child: ListView.separated(
+                            itemCount: rest.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 6),
+                            itemBuilder: (context, index) => _RankingRow(
+                              item: rest[index],
+                              fallbackRank: index + 4,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              },
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
@@ -170,33 +191,43 @@ class _Podium extends StatelessWidget {
       2 => SvnlyColors.electricBlue,
       _ => SvnlyColors.orange,
     };
-    return Container(
-      height: rank == 1 ? 154 : 130,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .13),
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(color: color.withValues(alpha: .2), blurRadius: 22),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            rank == 1 ? '👑' : '#$rank',
-            style: const TextStyle(fontSize: 25),
+    return Transform.rotate(
+      angle: rank == 1 ? 0 : (rank == 2 ? -.025 : .025),
+      child: Container(
+        height: rank == 1 ? 164 : 138,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [color.withValues(alpha: .34), SvnlyColors.deepNavy],
           ),
-          const SizedBox(height: 8),
-          Text(
-            item['display_name'] as String? ?? 'SVNLY member',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
-          Text('${item['score'] ?? 0}', style: TextStyle(color: color)),
-        ],
+          border: Border.all(color: color, width: 2),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(color: color.withValues(alpha: .28), blurRadius: 28),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              rank == 1 ? '👑' : '#$rank',
+              style: const TextStyle(fontSize: 28),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              item['display_name'] as String? ?? 'SVNLY member',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            Text(
+              '${item['score'] ?? 0}',
+              style: TextStyle(color: color, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -223,6 +223,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       }
       ref.invalidate(hasTakeTodayProvider);
       ref.invalidate(currentChallengeProvider);
+      ref.invalidate(myTakesProvider);
       if (mounted) {
         setState(
           () => stage = uploaded ? CaptureStage.done : CaptureStage.queued,
@@ -715,13 +716,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         ),
         const SizedBox(height: 24),
         Text(
-          'YOU DID IT',
+          'YOU ATE 🔥',
           style: Theme.of(context).textTheme.displayLarge
               ?.copyWith(fontSize: 52),
         ),
         const SizedBox(height: 12),
         const Text(
-          'Now go see what everyone else did.',
+          'Lowkey iconic. Jetzt ab in den Feed.',
           textAlign: TextAlign.center,
         ),
         const Spacer(),

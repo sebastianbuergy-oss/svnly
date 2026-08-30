@@ -363,7 +363,7 @@ class _FeedVideoCardState extends ConsumerState<FeedVideoCard> {
             _FeedAction(
               icon: Icons.mode_comment_outlined,
               label: '${widget.take.commentCount}',
-              onTap: () => showCommentsSheet(context, ref, widget.take),
+              onTap: () => showCommentsSheet(context, ref, widget.take.id),
             ),
             _FeedAction(
               icon: Icons.person_add_alt,

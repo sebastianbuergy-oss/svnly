@@ -12,6 +12,8 @@ import 'package:svnly/features/challenge/home_screen.dart';
 import 'package:svnly/features/challenge/models.dart';
 import 'package:svnly/features/feed/feed_screen.dart';
 import 'package:svnly/features/ranking/ranking_screen.dart';
+import 'package:svnly/features/profile/edit_profile_screen.dart';
+import 'package:svnly/features/profile/my_take_card.dart';
 import 'package:svnly/features/settings/settings_details.dart';
 
 class MockRepository extends Mock implements AppRepository {}
@@ -138,13 +140,14 @@ void main() {
         when(() => repository.currentChallenge())
             .thenAnswer((_) async => challenge);
         when(() => repository.hasTakeToday()).thenAnswer((_) async => true);
+        when(() => repository.loadMyTakes()).thenAnswer((_) async => []);
         await tester.pumpWidget(
           harness(const HomeScreen(), repository, locale: const Locale('de')),
         );
         await tester.pump();
         await tester.pump();
         expect(find.text('Zeig etwas unverkennbar Echtes.'), findsOneWidget);
-        expect(find.text('DU HAST ES GESCHAFFT'), findsOneWidget);
+        expect(find.text('YOU ATE 🔥'), findsOneWidget);
         expect(find.text('NIMM DEINE 7 SEKUNDEN AUF'), findsNothing);
       },
     );
@@ -172,7 +175,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('NO PEEKING 👀'), findsOneWidget);
-      expect(find.text('Do your take first.'), findsOneWidget);
+      expect(
+        find.text('Drop your 7 seconds first. No lurking.'),
+        findsOneWidget,
+      );
       expect(find.text('DO MY TAKE'), findsOneWidget);
     });
 
@@ -184,7 +190,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('NICHT SPICKEN 👀'), findsOneWidget);
-      expect(find.text('Mach zuerst deinen Take.'), findsOneWidget);
+      expect(
+        find.text('Erst selber liefern. 7 Sekunden. Kein Film schieben.'),
+        findsOneWidget,
+      );
     });
   });
 
@@ -322,6 +331,85 @@ void main() {
       await tester.pumpAndSettle();
       verify(() => repository.loadRankings('all_time', 'world')).called(1);
       expect(find.text('The world is still waking up.'), findsOneWidget);
+    });
+  });
+
+  group('final profile product pass', () {
+    testWidgets('My Take exposes upload state and social counters', (
+      tester,
+    ) async {
+      final take = MyTake(
+        challengeId: 'challenge-7',
+        challengeTitle: 'Show the chaos',
+        challengeDate: DateTime.utc(2026, 8, 30),
+        status: 'processing',
+        participationStatus: 'uploading',
+        reactionCount: 7,
+        commentCount: 3,
+        viewCount: 21,
+        createdAt: DateTime.utc(2026, 8, 30, 10),
+        isToday: true,
+      );
+      await tester.pumpWidget(
+        harness(
+          SingleChildScrollView(child: MyTakeCard(take: take)),
+          repository,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('PROCESSING'), findsOneWidget);
+      expect(find.text('Show the chaos'), findsOneWidget);
+      expect(find.text('UPLOAD IN PROGRESS'), findsOneWidget);
+      expect(find.text('7'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('21'), findsOneWidget);
+    });
+
+    testWidgets('profile editor persists display identity and bio', (
+      tester,
+    ) async {
+      when(() => repository.loadMyProfile()).thenAnswer(
+        (_) async => {
+          'username': 'seven.real',
+          'display_name': 'Seven',
+          'bio': 'Original bio',
+          'country_code': 'CH',
+        },
+      );
+      when(
+        () => repository.updateProfile(
+          username: any(named: 'username'),
+          displayName: any(named: 'displayName'),
+          bio: any(named: 'bio'),
+          countryCode: any(named: 'countryCode'),
+          avatarPath: any(named: 'avatarPath'),
+        ),
+      ).thenAnswer((_) async {});
+      await tester.pumpWidget(harness(const EditProfileScreen(), repository));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('edit_profile_display_name')),
+        'Seven Glow',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('edit_profile_bio')),
+        'Lowkey iconic.',
+      );
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('save_profile_changes')),
+      );
+      await tester.tap(find.byKey(const ValueKey('save_profile_changes')));
+      await tester.pump();
+      verify(
+        () => repository.updateProfile(
+          username: 'seven.real',
+          displayName: 'Seven Glow',
+          bio: 'Lowkey iconic.',
+          countryCode: 'CH',
+        ),
+      ).called(1);
     });
   });
 }

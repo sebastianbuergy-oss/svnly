@@ -39,6 +39,8 @@ const requiredFunctions = <String>{
   'reserve_take_upload',
   'finalize_take',
   'get_daily_feed',
+  'get_my_takes',
+  'update_my_profile',
   'block_profile',
   'create_report',
   'request_account_deletion',

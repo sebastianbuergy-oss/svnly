@@ -84,6 +84,9 @@ async function applyMigrations() {
     '202608270010_finalize_unlock_and_retry.sql',
     '202608270011_participation_source_of_truth.sql',
     '202608300012_build8_feed_compatibility.sql',
+    '202608300013_my_take_and_profile.sql',
+    '202608300014_build11_profile_compatibility.sql',
+    '202608300015_social_visibility_guard.sql',
   ]) {
     await db.exec(await readFile(join(root, 'supabase', 'migrations', name), 'utf8'));
   }
@@ -297,4 +300,58 @@ test('expired technical attempt without a take is automatically eligible for ret
   assert.equal(retry.rows[0].retry_count, 1);
   const previous = await owner(`select status,technical_retry_granted from public.take_attempts where id='${attempt}'`);
   assert.deepEqual(previous.rows[0], {status: 'technical_failure', technical_retry_granted: true});
+});
+
+test('owner My Take RPC exposes playable history and moderation state only for self', async () => {
+  const alice = await asUser(ids.alice, 'select * from public.get_my_takes(30)');
+  assert.equal(alice.rows.length, 2);
+  const today = alice.rows.find((row) => row.challenge_id === ids.challenge);
+  assert.equal(today.id, ids.aliceTake);
+  assert.equal(today.take_status, 'published');
+  assert.equal(today.participation_status, 'completed');
+  assert.equal(today.is_today, true);
+  const bob = await asUser(ids.bob, 'select * from public.get_my_takes(30)');
+  assert.deepEqual(new Set(bob.rows.map((row) => row.id)), new Set([ids.bobTake]));
+});
+
+test('Build 11 profile response remains backward compatible during rollout', async () => {
+  const result = await asUser(ids.alice, 'select public.get_my_profile() profile');
+  const profile = result.rows[0].profile;
+  assert(Array.isArray(profile.badges));
+  assert(Array.isArray(profile.take_history));
+  assert.equal(profile.take_history[0].id, ids.aliceTake);
+  assert.equal(profile.avatar_path, null);
+});
+
+test('reaction and comment on a published take update metrics and notify its owner', async () => {
+  await asUser(ids.bob, `select public.set_reaction('${ids.aliceTake}','fire')`);
+  await asUser(ids.bob, `select public.create_comment('${ids.aliceTake}','Lowkey iconic')`);
+  const metrics = await owner(`select reaction_count,comment_count from public.take_metrics where take_id='${ids.aliceTake}'`);
+  assert.deepEqual(metrics.rows[0], {reaction_count: 1, comment_count: 1});
+  const notifications = await owner(`select category from public.notifications where user_id='${ids.alice}' and category in ('reaction','comment') order by category`);
+  assert.deepEqual(notifications.rows.map((row) => row.category), ['comment', 'reaction']);
+});
+
+test('social RPCs require feed participation and take visibility', async () => {
+  const hidden = await asUser(ids.admin, `select * from public.get_comments('${ids.aliceTake}',30,0)`);
+  assert.equal(hidden.rows.length, 0);
+  await assert.rejects(() => asUser(ids.admin,
+    `select public.set_reaction('${ids.aliceTake}','heart')`));
+  await assert.rejects(() => asUser(ids.admin,
+    `select public.create_comment('${ids.aliceTake}','Guessed UUID')`));
+});
+
+test('avatar upload and profile edit are owner-scoped and keep a private storage path', async () => {
+  const avatarPath = `${ids.alice}/avatar.jpg`;
+  await asUser(ids.alice, `insert into storage.objects(bucket_id,name,owner_id) values('avatars','${avatarPath}','${ids.alice}')`);
+  await asUser(ids.alice, `select public.update_my_profile('alice.glow','Alice Glow','Seven seconds, no overthinking.','CH','${avatarPath}')`);
+  const updated = await owner(`select username::text,display_name,bio,avatar_path from public.profiles where id='${ids.alice}'`);
+  assert.deepEqual(updated.rows[0], {
+    username: 'alice.glow',
+    display_name: 'Alice Glow',
+    bio: 'Seven seconds, no overthinking.',
+    avatar_path: avatarPath,
+  });
+  await assert.rejects(() => asUser(ids.bob,
+    `select public.update_my_profile('bob.real','Bob','Nope','DE','${avatarPath}')`));
 });

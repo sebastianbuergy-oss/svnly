@@ -8,6 +8,7 @@ abstract final class SvnlyColors {
   static const lime = Color(0xFFE8FF00);
   static const limePressed = Color(0xFFC4D800);
   static const electricBlue = Color(0xFF1B8CFF);
+  static const cyan = Color(0xFF00F0FF);
   static const hotPink = Color(0xFFFF3D9A);
   static const orange = Color(0xFFFF7A1A);
   static const purple = Color(0xFF9B5CFF);
@@ -34,6 +35,21 @@ abstract final class SvnlyGradients {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [SvnlyColors.orange, SvnlyColors.hotPink],
+  );
+  static const heroPop = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      SvnlyColors.lime,
+      SvnlyColors.cyan,
+      SvnlyColors.purple,
+      SvnlyColors.hotPink,
+    ],
+  );
+  static const midnightPop = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF07182B), Color(0xFF231047), Color(0xFF3B102D)],
   );
 }
 
@@ -140,9 +156,17 @@ ThemeData buildSvnlyTheme() {
     navigationBarTheme: const NavigationBarThemeData(
       backgroundColor: Color(0xF2080D16),
       indicatorColor: SvnlyColors.lime,
+      elevation: 18,
       labelTextStyle: WidgetStatePropertyAll(
         TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
       ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: SvnlyColors.elevated,
+      selectedColor: SvnlyColors.hotPink,
+      side: BorderSide(color: SvnlyColors.cyan.withValues(alpha: .45)),
+      labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
     ),
   );
 }

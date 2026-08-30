@@ -53,6 +53,8 @@ dependencies:
   share_plus: ^13.3.0
   permission_handler: ^13.0.1
   uuid: ^4.6.0
+  image_picker: ^1.2.3
+  image: ^4.9.2
 
 dev_dependencies:
   flutter_test:

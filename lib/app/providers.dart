@@ -26,3 +26,7 @@ final feedProvider = FutureProvider.family<List<FeedTake>, String>((
 ) {
   return ref.watch(appRepositoryProvider).loadFeed(scope);
 });
+
+final myTakesProvider = FutureProvider<List<MyTake>>((ref) {
+  return ref.watch(appRepositoryProvider).loadMyTakes();
+});

@@ -43,6 +43,14 @@ class _NeonBackdropState extends State<NeonBackdrop>
             ),
           ),
           Positioned(
+            top: MediaQuery.sizeOf(context).height * .35,
+            left: -130 - drift / 2,
+            child: _GlowOrb(
+              color: SvnlyColors.lime.withValues(alpha: .10),
+              size: 230,
+            ),
+          ),
+          Positioned(
             bottom: -130 - drift,
             left: -100,
             child: _GlowOrb(
@@ -55,6 +63,40 @@ class _NeonBackdropState extends State<NeonBackdrop>
       );
     },
     child: widget.child,
+  );
+}
+
+class StickerTag extends StatelessWidget {
+  const StickerTag({
+    required this.label,
+    this.color = SvnlyColors.lime,
+    this.rotation = -.035,
+    super.key,
+  });
+  final String label;
+  final Color color;
+  final double rotation;
+
+  @override
+  Widget build(BuildContext context) => Transform.rotate(
+    angle: rotation,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        color: color,
+        border: Border.all(color: Colors.black, width: 2),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.black,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .8,
+        ),
+      ),
+    ),
   );
 }
 

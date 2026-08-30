@@ -9,7 +9,7 @@ import '../moderation/report_sheet.dart';
 Future<void> showCommentsSheet(
   BuildContext outerContext,
   WidgetRef ref,
-  FeedTake take,
+  String takeId,
 ) async {
   await showModalBottomSheet<void>(
     context: outerContext,
@@ -17,14 +17,14 @@ Future<void> showCommentsSheet(
     useSafeArea: true,
     builder: (context) => FractionallySizedBox(
       heightFactor: .82,
-      child: _CommentsBody(take: take),
+      child: _CommentsBody(takeId: takeId),
     ),
   );
 }
 
 class _CommentsBody extends ConsumerStatefulWidget {
-  const _CommentsBody({required this.take});
-  final FeedTake take;
+  const _CommentsBody({required this.takeId});
+  final String takeId;
   @override
   ConsumerState<_CommentsBody> createState() => _CommentsBodyState();
 }
@@ -37,7 +37,7 @@ class _CommentsBodyState extends ConsumerState<_CommentsBody> {
   @override
   void initState() {
     super.initState();
-    comments = ref.read(appRepositoryProvider).loadComments(widget.take.id);
+    comments = ref.read(appRepositoryProvider).loadComments(widget.takeId);
   }
 
   @override
@@ -47,7 +47,7 @@ class _CommentsBodyState extends ConsumerState<_CommentsBody> {
   }
 
   void _reload() => setState(() {
-    comments = ref.read(appRepositoryProvider).loadComments(widget.take.id);
+    comments = ref.read(appRepositoryProvider).loadComments(widget.takeId);
   });
 
   Future<void> _send() async {
@@ -55,9 +55,7 @@ class _CommentsBodyState extends ConsumerState<_CommentsBody> {
     if (value.isEmpty || value.length > 280) return;
     setState(() => sending = true);
     try {
-      await ref
-          .read(appRepositoryProvider)
-          .createComment(widget.take.id, value);
+      await ref.read(appRepositoryProvider).createComment(widget.takeId, value);
       input.clear();
       _reload();
     } finally {
