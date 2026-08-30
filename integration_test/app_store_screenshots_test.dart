@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:svnly/app/providers.dart';
 import 'package:svnly/app/router.dart';
 import 'package:svnly/app/svnly_app.dart';
-import 'package:svnly/core/design/tokens.dart';
 import 'package:svnly/features/auth/app_repository.dart';
 import 'package:svnly/features/auth/auth_screen.dart';
 import 'package:svnly/features/challenge/home_screen.dart';
@@ -29,11 +28,6 @@ Widget _todayScreen() => Scaffold(
       NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
     ],
   ),
-);
-
-Widget _storeScreen(Widget child, AppRepository repository) => ProviderScope(
-  overrides: [appRepositoryProvider.overrideWithValue(repository)],
-  child: MaterialApp(theme: buildSvnlyTheme(), home: child),
 );
 
 void main() {
@@ -134,11 +128,11 @@ void main() {
     await tester.pumpAndSettle();
     await binding.takeScreenshot('04-be-real');
 
-    await tester.pumpWidget(_storeScreen(_todayScreen(), repository));
+    router.go('/home');
     await tester.pumpAndSettle();
     await binding.takeScreenshot('05-today-challenge');
 
-    await tester.pumpWidget(_storeScreen(const RankingScreen(), repository));
+    router.go('/ranking');
     await tester.pumpAndSettle();
     await binding.takeScreenshot('06-ranking');
   });
