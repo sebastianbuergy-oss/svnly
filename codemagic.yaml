@@ -333,7 +333,7 @@ workflows:
             --driver=test_driver/integration_test.dart \
             --target=integration_test/app_store_screenshots_test.dart \
             -d "$SIMULATOR_UDID"
-          test "$(find build/ios-simulator/screenshots -name '*.png' | wc -l | tr -d ' ')" -eq 5
+          test "$(find build/ios-simulator/screenshots -name '*.png' | wc -l | tr -d ' ')" -eq 6
     artifacts:
       - build/ios/iphonesimulator/Runner.app/**
       - build/ios-native-tests/Logs/Test/*.xcresult

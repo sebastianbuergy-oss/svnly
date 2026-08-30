@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:svnly/app/providers.dart';
 import 'package:svnly/app/router.dart';
 import 'package:svnly/app/svnly_app.dart';
+import 'package:svnly/core/design/tokens.dart';
 import 'package:svnly/features/auth/app_repository.dart';
 import 'package:svnly/features/auth/auth_screen.dart';
 import 'package:svnly/features/challenge/home_screen.dart';
@@ -28,6 +29,11 @@ Widget _todayScreen() => Scaffold(
       NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
     ],
   ),
+);
+
+Widget _storeScreen(Widget child, AppRepository repository) => ProviderScope(
+  overrides: [appRepositoryProvider.overrideWithValue(repository)],
+  child: MaterialApp(theme: buildSvnlyTheme(), home: child),
 );
 
 void main() {
@@ -114,24 +120,26 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await binding.takeScreenshot('01-onboarding');
+    await binding.takeScreenshot('01-one-challenge');
 
-    for (var page = 0; page < 3; page++) {
-      await tester.tap(find.text('CONTINUE'));
-      await tester.pumpAndSettle();
-    }
-    await binding.takeScreenshot('02-be-real');
-
-    await tester.tap(find.text('JOIN SVNLY'));
+    await tester.tap(find.text('CONTINUE'));
     await tester.pumpAndSettle();
-    await binding.takeScreenshot('03-create-account');
+    await binding.takeScreenshot('02-seven-seconds');
 
-    router.go('/home');
-    await tester.pump(const Duration(seconds: 1));
-    await binding.takeScreenshot('04-today-challenge');
+    await tester.tap(find.text('CONTINUE'));
+    await tester.pumpAndSettle();
+    await binding.takeScreenshot('03-no-peeking');
 
-    router.go('/ranking');
-    await tester.pump(const Duration(seconds: 1));
-    await binding.takeScreenshot('05-ranking');
+    await tester.tap(find.text('CONTINUE'));
+    await tester.pumpAndSettle();
+    await binding.takeScreenshot('04-be-real');
+
+    await tester.pumpWidget(_storeScreen(_todayScreen(), repository));
+    await tester.pumpAndSettle();
+    await binding.takeScreenshot('05-today-challenge');
+
+    await tester.pumpWidget(_storeScreen(const RankingScreen(), repository));
+    await tester.pumpAndSettle();
+    await binding.takeScreenshot('06-ranking');
   });
 }
