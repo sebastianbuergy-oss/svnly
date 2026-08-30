@@ -14,7 +14,8 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final baseUrl = ref.watch(appConfigProvider).legalBaseUrl;
+    final config = ref.watch(appConfigProvider);
+    final baseUrl = config.legalBaseUrl;
     Future<void> legal(String path) => launchUrl(
       Uri.parse('$baseUrl/$path'),
       mode: LaunchMode.externalApplication,
@@ -46,13 +47,15 @@ class SettingsScreen extends ConsumerWidget {
             Icons.block,
             () => context.push('/blocked-users'),
           ),
-          _Section('PLUS'),
-          _Tile('SVNLY Plus', Icons.bolt, () => context.push('/premium')),
-          _Tile(
-            'Restore Purchases',
-            Icons.restore,
-            () => context.push('/premium'),
-          ),
+          if (config.premiumEnabled) ...[
+            _Section('PLUS'),
+            _Tile('SVNLY Plus', Icons.bolt, () => context.push('/premium')),
+            _Tile(
+              'Restore Purchases',
+              Icons.restore,
+              () => context.push('/premium'),
+            ),
+          ],
           _Section('HELP & LEGAL'),
           _Tile(
             'Help & Contact Support',

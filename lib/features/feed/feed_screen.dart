@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../app/providers.dart';
 import '../../core/design/tokens.dart';
+import '../../core/design/effects.dart';
 import '../../core/localization/app_strings.dart';
 import '../challenge/models.dart';
 import '../moderation/report_sheet.dart';
@@ -50,7 +52,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen>
             backgroundColor: Colors.black.withValues(alpha: .75),
             title: TabBar(
               controller: tabs,
-              indicatorColor: SvnlyColors.lime,
+              indicatorColor: _scopeColor(tabs.index),
+              labelColor: _scopeColor(tabs.index),
+              indicatorWeight: 4,
               tabs: const [
                 Tab(text: 'FRIENDS'),
                 Tab(text: 'COUNTRY'),
@@ -67,34 +71,69 @@ class _FeedScreenState extends ConsumerState<FeedScreen>
     );
   }
 
-  Widget _locked({bool retry = false}) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.lock_outline, size: 56, color: SvnlyColors.lime),
-          const SizedBox(height: 20),
-          Text(
-            AppStrings.of(context).locked,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineLarge,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            retry
-                ? 'We could not verify your participation.'
-                : 'Everyone plays by the same rule.',
-            textAlign: TextAlign.center,
-          ),
-          if (retry) ...[
-            const SizedBox(height: 20),
-            OutlinedButton(
-              onPressed: () => ref.invalidate(hasTakeTodayProvider),
-              child: const Text('TRY AGAIN'),
+  Color _scopeColor(int index) => switch (index) {
+    0 => SvnlyColors.hotPink,
+    1 => SvnlyColors.electricBlue,
+    _ => SvnlyColors.lime,
+  };
+
+  Widget _locked({bool retry = false}) => NeonBackdrop(
+    child: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Pulse(
+              child: Container(
+                width: 108,
+                height: 108,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: SvnlyGradients.social,
+                  boxShadow: [
+                    BoxShadow(
+                      color: SvnlyColors.hotPink.withValues(alpha: .35),
+                      blurRadius: 42,
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text('👀', style: TextStyle(fontSize: 52)),
+                ),
+              ),
             ),
+            const SizedBox(height: 20),
+            Text(
+              AppStrings.of(context).lockedTitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.displayLarge
+                  ?.copyWith(fontSize: 42, height: .95),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              retry
+                  ? 'We could not verify your participation.'
+                  : AppStrings.of(context).locked,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18),
+            ),
+            if (retry) ...[
+              const SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: () => ref.invalidate(hasTakeTodayProvider),
+                child: const Text('TRY AGAIN'),
+              ),
+            ] else ...[
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => context.go('/home'),
+                icon: const Icon(Icons.fiber_manual_record),
+                label: const Text('DO MY TAKE'),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     ),
   );
@@ -299,6 +338,7 @@ class _FeedVideoCardState extends ConsumerState<FeedVideoCard> {
               style: const TextStyle(
                 color: SvnlyColors.lime,
                 fontWeight: FontWeight.w800,
+                shadows: [Shadow(color: Colors.black, blurRadius: 8)],
               ),
             ),
             const SizedBox(height: 8),
@@ -359,7 +399,7 @@ class _FeedVideoCardState extends ConsumerState<FeedVideoCard> {
   );
 }
 
-class _FeedAction extends StatelessWidget {
+class _FeedAction extends StatefulWidget {
   const _FeedAction({
     required this.icon,
     required this.label,
@@ -369,35 +409,51 @@ class _FeedAction extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   @override
+  State<_FeedAction> createState() => _FeedActionState();
+}
+
+class _FeedActionState extends State<_FeedAction> {
+  bool pressed = false;
+
+  @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 10),
     child: Semantics(
       button: true,
-      label: label,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(30),
-        child: SizedBox(
-          width: 60,
-          child: Column(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.black54,
+      label: widget.label,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => pressed = true),
+        onTapCancel: () => setState(() => pressed = false),
+        onTapUp: (_) {
+          setState(() => pressed = false);
+          widget.onTap();
+        },
+        child: AnimatedScale(
+          scale: pressed ? .82 : 1,
+          duration: const Duration(milliseconds: 130),
+          curve: Curves.easeOutBack,
+          child: SizedBox(
+            width: 60,
+            child: Column(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black54,
+                  ),
+                  child: Icon(widget.icon),
                 ),
-                child: Icon(icon),
-              ),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                Text(
+                  widget.label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

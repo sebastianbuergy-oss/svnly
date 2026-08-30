@@ -8,6 +8,7 @@ class AppConfig {
     required this.supabaseUrl,
     required this.supabasePublishableKey,
     required this.revenueCatIosApiKey,
+    required this.premiumReleaseEnabled,
     required this.legalBaseUrl,
   });
 
@@ -29,6 +30,10 @@ class AppConfig {
       revenueCatIosApiKey: const String.fromEnvironment(
         'REVENUECAT_IOS_API_KEY',
       ),
+      premiumReleaseEnabled: const bool.fromEnvironment(
+        'ENABLE_PREMIUM',
+        defaultValue: false,
+      ),
       legalBaseUrl: const String.fromEnvironment(
         'LEGAL_BASE_URL',
         defaultValue: 'https://svnly.app',
@@ -40,12 +45,14 @@ class AppConfig {
   final String supabaseUrl;
   final String supabasePublishableKey;
   final String revenueCatIosApiKey;
+  final bool premiumReleaseEnabled;
   final String legalBaseUrl;
 
   bool get hasBackendConfiguration =>
       Uri.tryParse(supabaseUrl)?.hasScheme == true &&
       supabasePublishableKey.isNotEmpty;
-  bool get premiumEnabled => revenueCatIosApiKey.isNotEmpty;
+  bool get premiumEnabled =>
+      premiumReleaseEnabled && revenueCatIosApiKey.isNotEmpty;
 }
 
 final appConfigProvider = Provider<AppConfig>(

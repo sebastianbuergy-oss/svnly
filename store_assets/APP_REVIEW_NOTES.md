@@ -11,7 +11,8 @@ The feed is intentionally locked until the user submits today’s take. This is 
 3. Long-press or use the overflow actions on a take/profile to report or block. Blocking removes both follow directions and immediately hides interaction.
 4. Account deletion: Settings → Privacy & Account → Delete Account → confirm. The profile is disabled immediately and the deletion job starts.
 5. Community Guidelines: Settings → Legal → Community Guidelines, or the public `/community` URL.
-6. Plus: Settings → SVNLY Plus. Test monthly/yearly StoreKit sandbox purchase and Restore Purchases. Plus never changes ranking or attempt count.
+
+SVNLY Plus is not part of this review submission. No in-app purchase should be reviewed until its App Store products, RevenueCat entitlement, purchase and restore paths have passed a signed-device sandbox test.
 
 ## Review accounts
 

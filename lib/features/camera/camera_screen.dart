@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../app/providers.dart';
 import '../../core/design/tokens.dart';
+import '../../core/design/effects.dart';
 import '../../core/errors/error_mapper.dart';
 import '../../core/widgets/brand.dart';
 import '../challenge/models.dart';
@@ -420,6 +421,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Widget _cameraView() {
     final value = controller;
+    final challenge = ref.watch(currentChallengeProvider).asData?.value;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -471,32 +473,91 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   ],
                 ],
               ),
-              if (stage == CaptureStage.ready)
-                const Card(
-                  color: Colors.black54,
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text(
-                      'One take. Recording cannot be stopped or repeated.',
+              if (stage == CaptureStage.ready ||
+                  stage == CaptureStage.countdown ||
+                  stage == CaptureStage.recording)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .64),
+                    border: Border.all(
+                      color: SvnlyColors.lime.withValues(alpha: .45),
                     ),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        "TODAY'S SVNLY",
+                        style: TextStyle(
+                          color: SvnlyColors.lime,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.5,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        challenge?.title(
+                              Localizations.localeOf(context).languageCode,
+                            ) ??
+                            '7 seconds. One take.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ],
                   ),
                 ),
               const Spacer(),
               if (stage == CaptureStage.countdown)
-                Text(
-                  '$countdown',
-                  style: Theme.of(context).textTheme.displayLarge
-                      ?.copyWith(fontSize: 120),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutBack,
+                    ),
+                    child: FadeTransition(opacity: animation, child: child),
+                  ),
+                  child: Text(
+                    '$countdown',
+                    key: ValueKey(countdown),
+                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                      fontSize: 132,
+                      color: countdown == 1
+                          ? SvnlyColors.hotPink
+                          : SvnlyColors.lime,
+                      shadows: const [
+                        Shadow(color: SvnlyColors.lime, blurRadius: 34),
+                      ],
+                    ),
+                  ),
                 )
               else if (stage == CaptureStage.recording) ...[
-                Text(
-                  '${math.max(0, 7 - stopwatch.elapsed.inSeconds)}',
-                  style: Theme.of(context).textTheme.displayLarge
-                      ?.copyWith(fontSize: 96),
+                SizedBox(
+                  width: 150,
+                  height: 150,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 9,
+                        color: SvnlyColors.lime,
+                        backgroundColor: Colors.white24,
+                      ),
+                      Center(
+                        child: Text(
+                          '${math.max(0, 7 - stopwatch.elapsed.inSeconds)}',
+                          style: Theme.of(context).textTheme.displayLarge
+                              ?.copyWith(fontSize: 76),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
-                LinearProgressIndicator(value: progress, minHeight: 7),
-                const SizedBox(height: 12),
                 const Text(
                   '● RECORDING',
                   style: TextStyle(
@@ -524,6 +585,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       final name = freeLooks[index];
                       return ChoiceChip(
                         selected: look == name,
+                        selectedColor: SvnlyColors.electricBlue,
+                        side: BorderSide(
+                          color: look == name
+                              ? SvnlyColors.electricBlue
+                              : Colors.white24,
+                        ),
                         onSelected: (_) => setState(() => look = name),
                         label: Text(name),
                       );
@@ -531,19 +598,28 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   ),
                 ),
                 const SizedBox(height: 20),
-                Semantics(
-                  button: true,
-                  label: 'Start one-take recording',
-                  child: InkWell(
-                    onTap: _capture,
-                    customBorder: const CircleBorder(),
-                    child: Container(
-                      width: 82,
-                      height: 82,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 5),
-                        color: SvnlyColors.lime,
+                Pulse(
+                  child: Semantics(
+                    button: true,
+                    label: 'Start one-take recording',
+                    child: InkWell(
+                      onTap: _capture,
+                      customBorder: const CircleBorder(),
+                      child: Container(
+                        width: 92,
+                        height: 92,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 5),
+                          color: SvnlyColors.lime,
+                          boxShadow: [
+                            BoxShadow(
+                              color: SvnlyColors.lime.withValues(alpha: .55),
+                              blurRadius: 34,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -592,16 +668,31 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     child: Column(
       children: [
         const Spacer(),
-        const Icon(Icons.check_circle, size: 78, color: SvnlyColors.success),
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: .3, end: 1),
+          duration: const Duration(milliseconds: 520),
+          curve: Curves.elasticOut,
+          builder: (context, value, child) =>
+              Transform.scale(scale: value, child: child),
+          child: Container(
+            width: 112,
+            height: 112,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: SvnlyGradients.social,
+            ),
+            child: const Icon(Icons.check, size: 64, color: Colors.white),
+          ),
+        ),
         const SizedBox(height: 24),
         Text(
-          'DONE ✓',
+          'YOU DID IT',
           style: Theme.of(context).textTheme.displayLarge
               ?.copyWith(fontSize: 52),
         ),
         const SizedBox(height: 12),
         const Text(
-          "We're checking your take before it goes live.",
+          'Now go see what everyone else did.',
           textAlign: TextAlign.center,
         ),
         const Spacer(),

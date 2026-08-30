@@ -15,9 +15,16 @@ class AppStrings {
   String get today => isGerman ? 'HEUTIGES SVNLY' : "TODAY'S SVNLY";
   String get take =>
       isGerman ? 'NIMM DEINE 7 SEKUNDEN AUF' : 'TAKE YOUR 7 SECONDS';
-  String get locked => isGerman
-      ? 'Mach zuerst deinen Take, bevor du die anderen siehst.'
-      : 'Take yours before you see theirs.';
+  String get takeTease =>
+      isGerman ? 'Nicht overthinken 👀' : "Don't overthink it 👀";
+  String get lockedTitle => isGerman ? 'NICHT SPICKEN 👀' : 'NO PEEKING 👀';
+  String get locked =>
+      isGerman ? 'Mach zuerst deinen Take.' : 'Do your take first.';
+  String get successTitle => isGerman ? 'DU HAST ES GESCHAFFT' : 'YOU DID IT';
+  String get successBody => isGerman
+      ? 'Jetzt schau, was alle anderen gemacht haben.'
+      : 'Now go see what everyone else did.';
+  String get flexIt => isGerman ? "ZEIG'S IHNEN" : 'FLEX IT';
   String get offline => isGerman
       ? 'Du bist offline. Dein Take wird hochgeladen, sobald du wieder online bist.'
       : "You're offline. Your take will upload when you're back.";

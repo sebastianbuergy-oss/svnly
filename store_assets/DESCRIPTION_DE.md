@@ -14,6 +14,4 @@ So funktioniert SVNLY:
 
 Ein Versuch bedeutet: keine freiwilligen Neuaufnahmen. Nur nach einem verifizierten technischen Fehler kann ein Retry angeboten werden.
 
-SVNLY Plus bietet zusätzliche Looks und persönliche Statistiken. Plus gibt keine Extra-Takes, keinen Ranking-Vorteil und keine Pay-to-Win-Funktion.
-
 7 Sekunden. Ein Versuch. Sei echt.

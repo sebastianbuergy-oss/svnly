@@ -8,6 +8,7 @@ void main() {
       supabaseUrl: 'https://example.supabase.co',
       supabasePublishableKey: 'sb_publishable_example',
       revenueCatIosApiKey: '',
+      premiumReleaseEnabled: false,
       legalBaseUrl: 'https://svnly.app',
     );
     const missingKey = AppConfig(
@@ -15,6 +16,7 @@ void main() {
       supabaseUrl: 'https://example.supabase.co',
       supabasePublishableKey: '',
       revenueCatIosApiKey: '',
+      premiumReleaseEnabled: false,
       legalBaseUrl: 'https://svnly.app',
     );
 
@@ -22,23 +24,37 @@ void main() {
     expect(missingKey.hasBackendConfiguration, isFalse);
   });
 
-  test('premium is feature-gated by RevenueCat configuration', () {
-    const free = AppConfig(
-      environment: AppEnvironment.local,
-      supabaseUrl: '',
-      supabasePublishableKey: '',
-      revenueCatIosApiKey: '',
-      legalBaseUrl: 'https://svnly.app',
-    );
-    const premium = AppConfig(
-      environment: AppEnvironment.production,
-      supabaseUrl: '',
-      supabasePublishableKey: '',
-      revenueCatIosApiKey: 'appl_example',
-      legalBaseUrl: 'https://svnly.app',
-    );
+  test(
+    'premium requires both release approval and RevenueCat configuration',
+    () {
+      const free = AppConfig(
+        environment: AppEnvironment.local,
+        supabaseUrl: '',
+        supabasePublishableKey: '',
+        revenueCatIosApiKey: '',
+        premiumReleaseEnabled: false,
+        legalBaseUrl: 'https://svnly.app',
+      );
+      const unapproved = AppConfig(
+        environment: AppEnvironment.production,
+        supabaseUrl: '',
+        supabasePublishableKey: '',
+        revenueCatIosApiKey: 'appl_example',
+        premiumReleaseEnabled: false,
+        legalBaseUrl: 'https://svnly.app',
+      );
+      const premium = AppConfig(
+        environment: AppEnvironment.production,
+        supabaseUrl: '',
+        supabasePublishableKey: '',
+        revenueCatIosApiKey: 'appl_example',
+        premiumReleaseEnabled: true,
+        legalBaseUrl: 'https://svnly.app',
+      );
 
-    expect(free.premiumEnabled, isFalse);
-    expect(premium.premiumEnabled, isTrue);
-  });
+      expect(free.premiumEnabled, isFalse);
+      expect(unapproved.premiumEnabled, isFalse);
+      expect(premium.premiumEnabled, isTrue);
+    },
+  );
 }

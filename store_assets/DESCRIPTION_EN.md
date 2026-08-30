@@ -14,6 +14,4 @@ How SVNLY works:
 
 One take means no voluntary retakes. A retry is only offered after a verified technical failure.
 
-SVNLY Plus adds extra looks and personal statistics. Plus never provides extra takes, ranking advantages or pay-to-win features.
-
 7 seconds. One take. Be real.

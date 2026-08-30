@@ -7,12 +7,34 @@ abstract final class SvnlyColors {
   static const elevated = Color(0xFF171E2A);
   static const lime = Color(0xFFE8FF00);
   static const limePressed = Color(0xFFC4D800);
+  static const electricBlue = Color(0xFF1B8CFF);
+  static const hotPink = Color(0xFFFF3D9A);
+  static const orange = Color(0xFFFF7A1A);
+  static const purple = Color(0xFF9B5CFF);
   static const text = Color(0xFFF7F8FA);
   static const secondaryText = Color(0xFFA6AFBD);
   static const mutedText = Color(0xFF6E7785);
   static const error = Color(0xFFFF5D5D);
   static const warning = Color(0xFFFFA63D);
   static const success = Color(0xFF2ED47A);
+}
+
+abstract final class SvnlyGradients {
+  static const hero = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF172A12), SvnlyColors.deepNavy, Color(0xFF15102B)],
+  );
+  static const social = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [SvnlyColors.electricBlue, SvnlyColors.purple, SvnlyColors.hotPink],
+  );
+  static const fire = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [SvnlyColors.orange, SvnlyColors.hotPink],
+  );
 }
 
 abstract final class SvnlySpace {
@@ -116,7 +138,7 @@ ThemeData buildSvnlyTheme() {
       ),
     ),
     navigationBarTheme: const NavigationBarThemeData(
-      backgroundColor: SvnlyColors.deepNavy,
+      backgroundColor: Color(0xF2080D16),
       indicatorColor: SvnlyColors.lime,
       labelTextStyle: WidgetStatePropertyAll(
         TextStyle(fontSize: 11, fontWeight: FontWeight.w700),

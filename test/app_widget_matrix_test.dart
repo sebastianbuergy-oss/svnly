@@ -10,6 +10,7 @@ import 'package:svnly/features/auth/app_repository.dart';
 import 'package:svnly/features/auth/auth_screen.dart';
 import 'package:svnly/features/challenge/home_screen.dart';
 import 'package:svnly/features/challenge/models.dart';
+import 'package:svnly/features/feed/feed_screen.dart';
 import 'package:svnly/features/ranking/ranking_screen.dart';
 import 'package:svnly/features/settings/settings_details.dart';
 
@@ -126,6 +127,7 @@ void main() {
         await tester.pump();
         expect(find.text('Show something unmistakably real.'), findsOneWidget);
         expect(find.text('TAKE YOUR 7 SECONDS'), findsOneWidget);
+        expect(find.byKey(const ValueKey('take_hero_cta')), findsOneWidget);
         expect(find.text('27 takes today'), findsOneWidget);
       },
     );
@@ -142,7 +144,7 @@ void main() {
         await tester.pump();
         await tester.pump();
         expect(find.text('Zeig etwas unverkennbar Echtes.'), findsOneWidget);
-        expect(find.text('DONE ✓'), findsOneWidget);
+        expect(find.text('DU HAST ES GESCHAFFT'), findsOneWidget);
         expect(find.text('NIMM DEINE 7 SEKUNDEN AUF'), findsNothing);
       },
     );
@@ -158,6 +160,31 @@ void main() {
       await tester.pump();
       expect(find.text('Challenge unavailable'), findsOneWidget);
       expect(find.text('TRY AGAIN'), findsOneWidget);
+    });
+  });
+
+  group('feed lock widgets', () {
+    testWidgets('locked feed clearly explains the participation gate', (
+      tester,
+    ) async {
+      when(() => repository.hasTakeToday()).thenAnswer((_) async => false);
+      await tester.pumpWidget(harness(const FeedScreen(), repository));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('NO PEEKING 👀'), findsOneWidget);
+      expect(find.text('Do your take first.'), findsOneWidget);
+      expect(find.text('DO MY TAKE'), findsOneWidget);
+    });
+
+    testWidgets('locked feed is localized in German', (tester) async {
+      when(() => repository.hasTakeToday()).thenAnswer((_) async => false);
+      await tester.pumpWidget(
+        harness(const FeedScreen(), repository, locale: const Locale('de')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('NICHT SPICKEN 👀'), findsOneWidget);
+      expect(find.text('Mach zuerst deinen Take.'), findsOneWidget);
     });
   });
 
@@ -262,6 +289,26 @@ void main() {
       expect(find.text('Ada'), findsOneWidget);
       expect(find.text('@ada.real · CH'), findsOneWidget);
       expect(find.text('98.5'), findsOneWidget);
+    });
+
+    testWidgets('ranking celebrates the authoritative top three', (
+      tester,
+    ) async {
+      when(() => repository.loadRankings(any(), any())).thenAnswer(
+        (_) async => const [
+          {'rank': 1, 'display_name': 'Ada', 'score': 98.5},
+          {'rank': 2, 'display_name': 'Maya', 'score': 94.0},
+          {'rank': 3, 'display_name': 'Noah', 'score': 91.0},
+        ],
+      );
+      await tester.pumpWidget(harness(const RankingScreen(), repository));
+      await tester.pumpAndSettle();
+      expect(find.text('👑'), findsOneWidget);
+      expect(find.text('#2'), findsOneWidget);
+      expect(find.text('#3'), findsOneWidget);
+      expect(find.text('Ada'), findsOneWidget);
+      expect(find.text('Maya'), findsOneWidget);
+      expect(find.text('Noah'), findsOneWidget);
     });
 
     testWidgets('ranking period switch reloads all-time world results', (
