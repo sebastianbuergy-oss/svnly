@@ -15,6 +15,7 @@ import '../../core/design/effects.dart';
 import '../../core/errors/error_mapper.dart';
 import '../../core/widgets/brand.dart';
 import '../challenge/models.dart';
+import 'camera_policy.dart';
 import 'pending_upload_store.dart';
 import 'live_look_processor.dart';
 
@@ -92,10 +93,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     try {
       cameras = await availableCameras();
       if (cameras.isEmpty) throw StateError('No camera is available.');
-      final front = cameras.indexWhere(
-        (camera) => camera.lensDirection == CameraLensDirection.front,
-      );
-      cameraIndex = front >= 0 ? front : 0;
+      final backWide = naturalCameraIndex(cameras, CameraLensDirection.back);
+      final frontWide = naturalCameraIndex(cameras, CameraLensDirection.front);
+      cameraIndex = backWide >= 0 ? backWide : (frontWide >= 0 ? frontWide : 0);
       await _initialize(cameraIndex);
       if (mounted) setState(() => stage = CaptureStage.ready);
     } catch (error) {
@@ -116,12 +116,22 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
     controller = next;
     await next.initialize();
+    await applyNaturalStartupZoom(
+      getMinZoom: next.getMinZoomLevel,
+      getMaxZoom: next.getMaxZoomLevel,
+      setZoom: next.setZoomLevel,
+    );
     await next.lockCaptureOrientation(DeviceOrientation.portraitUp);
   }
 
   Future<void> _flip() async {
     if (stage != CaptureStage.ready || cameras.length < 2) return;
-    final next = (cameraIndex + 1) % cameras.length;
+    final currentDirection = cameras[cameraIndex].lensDirection;
+    final targetDirection = currentDirection == CameraLensDirection.front
+        ? CameraLensDirection.back
+        : CameraLensDirection.front;
+    final next = naturalCameraIndex(cameras, targetDirection);
+    if (next < 0 || next == cameraIndex) return;
     setState(() => stage = CaptureStage.processing);
     try {
       await _initialize(next);
@@ -426,9 +436,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       fit: StackFit.expand,
       children: [
         if (value?.value.isInitialized == true)
-          ColorFiltered(
-            colorFilter: ColorFilter.matrix(_filterMatrix()),
-            child: CameraPreview(value!),
+          NaturalCameraPreview(
+            aspectRatio: 1 / value!.value.aspectRatio,
+            child: ColorFiltered(
+              colorFilter: ColorFilter.matrix(_filterMatrix()),
+              child: CameraPreview(value),
+            ),
           )
         else
           const Center(child: CircularProgressIndicator()),
@@ -457,6 +470,22 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   ),
                   const Spacer(),
                   if (stage == CaptureStage.ready) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        border: Border.all(color: SvnlyColors.lime),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        '1×',
+                        key: ValueKey('camera_native_zoom_badge'),
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
                     IconButton(
                       onPressed: _flip,
                       icon: const Icon(Icons.cameraswitch_outlined),
