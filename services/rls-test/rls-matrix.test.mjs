@@ -87,6 +87,7 @@ async function applyMigrations() {
     '202608300013_my_take_and_profile.sql',
     '202608300014_build11_profile_compatibility.sql',
     '202608300015_social_visibility_guard.sql',
+    '202608300016_profile_avatar_persistence.sql',
   ]) {
     await db.exec(await readFile(join(root, 'supabase', 'migrations', name), 'utf8'));
   }
@@ -341,17 +342,41 @@ test('social RPCs require feed participation and take visibility', async () => {
     `select public.create_comment('${ids.aliceTake}','Guessed UUID')`));
 });
 
-test('avatar upload and profile edit are owner-scoped and keep a private storage path', async () => {
-  const avatarPath = `${ids.alice}/avatar.jpg`;
-  await asUser(ids.alice, `insert into storage.objects(bucket_id,name,owner_id) values('avatars','${avatarPath}','${ids.alice}')`);
-  await asUser(ids.alice, `select public.update_my_profile('alice.glow','Alice Glow','Seven seconds, no overthinking.','CH','${avatarPath}')`);
-  const updated = await owner(`select username::text,display_name,bio,avatar_path from public.profiles where id='${ids.alice}'`);
-  assert.deepEqual(updated.rows[0], {
-    username: 'alice.glow',
-    display_name: 'Alice Glow',
-    bio: 'Seven seconds, no overthinking.',
-    avatar_path: avatarPath,
-  });
+test('avatar upload, replacement, restart persistence and removal are owner-scoped', async () => {
+  const firstPath = `${ids.alice}/avatar-11111111-1111-4111-8111-111111111111.jpg`;
+  const secondPath = `${ids.alice}/avatar-22222222-2222-4222-8222-222222222222.jpg`;
+
+  await asUser(ids.alice, `insert into storage.objects(bucket_id,name,owner_id) values('avatars','${firstPath}','${ids.alice}')`);
+  assert.equal(await countAs(ids.alice, 'storage.objects', `bucket_id='avatars' and name='${firstPath}'`), 1,
+    'the owner must be able to read a just-uploaded object before profiles.avatar_path changes');
+  assert.equal(await countAs(ids.bob, 'storage.objects',
+    `bucket_id='avatars' and name='${firstPath}'`), 0);
+
+  const firstSave = await asUser(ids.alice,
+    `select public.update_my_profile('alice.glow','Alice Glow','Seven seconds, no overthinking.','CH','${firstPath}',false) profile`);
+  assert.equal(firstSave.rows[0].profile.avatar_path, firstPath);
+  assert.equal(firstSave.rows[0].profile.previous_avatar_path, null);
+
+  await asUser(ids.alice, `insert into storage.objects(bucket_id,name,owner_id) values('avatars','${secondPath}','${ids.alice}')`);
+  const replacement = await asUser(ids.alice,
+    `select public.update_my_profile('alice.glow','Alice Reloaded','Still here after restart.','CH','${secondPath}',false) profile`);
+  assert.equal(replacement.rows[0].profile.avatar_path, secondPath);
+  assert.equal(replacement.rows[0].profile.previous_avatar_path, firstPath);
+
+  // A fresh authenticated transaction models a full app restart.
+  const reloaded = await asUser(ids.alice, 'select public.get_my_profile() profile');
+  assert.equal(reloaded.rows[0].profile.avatar_path, secondPath);
+  assert.equal(reloaded.rows[0].profile.display_name, 'Alice Reloaded');
+  assert.equal(reloaded.rows[0].profile.bio, 'Still here after restart.');
+
+  const removed = await asUser(ids.alice,
+    `select public.update_my_profile('alice.glow','Alice Reloaded','Still here after restart.','CH',null,true) profile`);
+  assert.equal(removed.rows[0].profile.avatar_path, null);
+  assert.equal(removed.rows[0].profile.previous_avatar_path, secondPath);
+  await asUser(ids.alice,
+    `delete from storage.objects where bucket_id='avatars' and name in ('${firstPath}','${secondPath}')`);
+  assert.equal((await owner(`select count(*)::integer count from storage.objects where bucket_id='avatars' and name in ('${firstPath}','${secondPath}')`)).rows[0].count, 0);
+
   await assert.rejects(() => asUser(ids.bob,
-    `select public.update_my_profile('bob.real','Bob','Nope','DE','${avatarPath}')`));
+    `select public.update_my_profile('bob.real','Bob','Nope','DE','${firstPath}',false)`));
 });

@@ -62,6 +62,7 @@ abstract interface class AppRepository {
     required String bio,
     required String countryCode,
     String? avatarPath,
+    bool removeAvatar = false,
   });
   Future<String> uploadAvatar(Uint8List imageBytes);
   Future<void> updateSetting(String key, Object? value);
@@ -151,6 +152,7 @@ class UnconfiguredRepository implements AppRepository {
     required String bio,
     required String countryCode,
     String? avatarPath,
+    bool removeAvatar = false,
   }) async => _missing();
   @override
   Future<String> uploadAvatar(Uint8List imageBytes) async => _missing();

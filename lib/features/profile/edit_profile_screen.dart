@@ -31,8 +31,17 @@ Uint8List prepareAvatarImage(Uint8List bytes) {
   return Uint8List.fromList(image.encodeJpg(resized, quality: 88));
 }
 
+typedef AvatarBytesPicker = Future<Uint8List?> Function(
+  ImageSource source,
+  CameraDevice preferredCameraDevice,
+);
+
+enum _AvatarAction { camera, gallery, remove }
+
 class EditProfileScreen extends ConsumerStatefulWidget {
-  const EditProfileScreen({super.key});
+  const EditProfileScreen({super.key, this.avatarPicker});
+
+  final AvatarBytesPicker? avatarPicker;
 
   @override
   ConsumerState<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -45,9 +54,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final bio = TextEditingController();
   Uint8List? avatarBytes;
   String? avatarUrl;
+  String? avatarPath;
+  bool removeAvatar = false;
   String country = 'CH';
   bool loading = true;
   bool saving = false;
+  bool processingAvatar = false;
 
   static const countries = {
     'CH': '🇨🇭 Switzerland',
@@ -78,6 +90,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       bio.text = value['bio'] as String? ?? '';
       country = value['country_code'] as String? ?? 'CH';
       avatarUrl = value['avatar_url'] as String?;
+      avatarPath = value['avatar_path'] as String?;
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -96,25 +109,99 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _pickAvatar() async {
+  Future<void> _showAvatarActions() async {
+    final action = await showModalBottomSheet<_AvatarAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              key: const ValueKey('take_profile_photo'),
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Foto aufnehmen'),
+              subtitle: const Text(
+                'Front camera first. Main character energy.',
+              ),
+              onTap: () => Navigator.pop(context, _AvatarAction.camera),
+            ),
+            ListTile(
+              key: const ValueKey('choose_profile_photo'),
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Aus Galerie wählen'),
+              onTap: () => Navigator.pop(context, _AvatarAction.gallery),
+            ),
+            if (_hasAvatar)
+              ListTile(
+                key: const ValueKey('remove_profile_photo'),
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Profilbild entfernen'),
+                textColor: SvnlyColors.hotPink,
+                iconColor: SvnlyColors.hotPink,
+                onTap: () => Navigator.pop(context, _AvatarAction.remove),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _AvatarAction.camera:
+        await _pickAvatar(ImageSource.camera);
+        break;
+      case _AvatarAction.gallery:
+        await _pickAvatar(ImageSource.gallery);
+        break;
+      case _AvatarAction.remove:
+        setState(() {
+          avatarBytes = null;
+          avatarUrl = null;
+          removeAvatar = true;
+        });
+        break;
+    }
+  }
+
+  bool get _hasAvatar =>
+      avatarBytes != null ||
+      (!removeAvatar &&
+          ((avatarPath?.isNotEmpty ?? false) ||
+              (avatarUrl?.isNotEmpty ?? false)));
+
+  Future<Uint8List?> _readAvatarSource(ImageSource source) async {
+    final injected = widget.avatarPicker;
+    if (injected != null) return injected(source, CameraDevice.front);
     final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
+      source: source,
+      preferredCameraDevice: CameraDevice.front,
       maxWidth: 2400,
       maxHeight: 2400,
       imageQuality: 100,
     );
-    if (picked == null) return;
+    return picked?.readAsBytes();
+  }
+
+  Future<void> _pickAvatar(ImageSource source) async {
+    setState(() => processingAvatar = true);
     try {
-      final processed = await compute(
-        prepareAvatarImage,
-        await picked.readAsBytes(),
-      );
-      if (mounted) setState(() => avatarBytes = processed);
+      final original = await _readAvatarSource(source);
+      if (original == null) return;
+      final processed = widget.avatarPicker == null
+          ? await compute(prepareAvatarImage, original)
+          : prepareAvatarImage(original);
+      if (mounted) {
+        setState(() {
+          avatarBytes = processed;
+          removeAvatar = false;
+        });
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(ErrorMapper.message(error))));
       }
+    } finally {
+      if (mounted) setState(() => processingAvatar = false);
     }
   }
 
@@ -133,6 +220,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         bio: bio.text,
         countryCode: country,
         avatarPath: avatarPath,
+        removeAvatar: removeAvatar,
       );
       ref.invalidate(myTakesProvider);
       if (mounted && Navigator.of(context).canPop()) {
@@ -195,12 +283,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           bottom: 0,
                           child: IconButton.filled(
                             key: const ValueKey('pick_profile_avatar'),
-                            onPressed: _pickAvatar,
+                            onPressed: saving || processingAvatar
+                                ? null
+                                : _showAvatarActions,
                             style: IconButton.styleFrom(
                               backgroundColor: SvnlyColors.hotPink,
                               foregroundColor: Colors.white,
                             ),
-                            icon: const Icon(Icons.photo_library_outlined),
+                            icon: processingAvatar
+                                ? const SizedBox.square(
+                                    dimension: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.add_a_photo_outlined),
                           ),
                         ),
                       ],
@@ -270,7 +367,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   const SizedBox(height: 28),
                   FilledButton.icon(
                     key: const ValueKey('save_profile_changes'),
-                    onPressed: saving ? null : _save,
+                    onPressed: saving || processingAvatar ? null : _save,
                     icon: saving
                         ? const SizedBox.square(
                             dimension: 18,

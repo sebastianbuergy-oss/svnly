@@ -42,7 +42,7 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>SVNLY uses the camera only to record your direct seven-second daily take. Gallery uploads are not available.</string>
+	<string>SVNLY uses the camera to record your direct seven-second daily take and, when you choose it, to take your profile picture.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SVNLY uses the microphone to record the sound of your seven-second daily take.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

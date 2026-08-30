@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../challenge/models.dart';
 import '../notifications/push_registration.dart';
@@ -393,7 +394,7 @@ class SupabaseAppRepository implements AppRepository {
     }
     final id = userId;
     if (id == null) throw const AuthException('Authentication required.');
-    final path = '$id/avatar.jpg';
+    final path = '$id/avatar-${const Uuid().v4()}.jpg';
     await _client.storage
         .from('avatars')
         .uploadBinary(
@@ -401,8 +402,8 @@ class SupabaseAppRepository implements AppRepository {
           imageBytes,
           fileOptions: const FileOptions(
             contentType: 'image/jpeg',
-            cacheControl: '3600',
-            upsert: true,
+            cacheControl: '31536000',
+            upsert: false,
           ),
         );
     return path;
@@ -415,17 +416,43 @@ class SupabaseAppRepository implements AppRepository {
     required String bio,
     required String countryCode,
     String? avatarPath,
+    bool removeAvatar = false,
   }) async {
-    await _client.rpc(
-      'update_my_profile',
-      params: {
-        'p_username': username.trim(),
-        'p_display_name': displayName.trim(),
-        'p_bio': bio.trim(),
-        'p_country_code': countryCode,
-        'p_avatar_path': avatarPath,
-      },
-    );
+    Map<String, dynamic> updated;
+    try {
+      updated = _map(
+        await _client.rpc(
+          'update_my_profile',
+          params: {
+            'p_username': username.trim(),
+            'p_display_name': displayName.trim(),
+            'p_bio': bio.trim(),
+            'p_country_code': countryCode,
+            'p_avatar_path': avatarPath,
+            'p_remove_avatar': removeAvatar,
+          },
+        ),
+      );
+    } catch (_) {
+      if (avatarPath != null) {
+        try {
+          await _client.storage.from('avatars').remove([avatarPath]);
+        } catch (_) {
+          // The unreferenced object remains private and can be cleaned later.
+        }
+      }
+      rethrow;
+    }
+
+    final previousPath = updated['previous_avatar_path'] as String?;
+    final currentPath = updated['avatar_path'] as String?;
+    if (previousPath != null && previousPath != currentPath) {
+      try {
+        await _client.storage.from('avatars').remove([previousPath]);
+      } catch (_) {
+        // The profile is already correct; stale private bytes are non-blocking.
+      }
+    }
   }
 
   @override

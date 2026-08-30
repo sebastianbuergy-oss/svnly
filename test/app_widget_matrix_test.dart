@@ -383,6 +383,7 @@ void main() {
           bio: any(named: 'bio'),
           countryCode: any(named: 'countryCode'),
           avatarPath: any(named: 'avatarPath'),
+          removeAvatar: any(named: 'removeAvatar'),
         ),
       ).thenAnswer((_) async {});
       await tester.pumpWidget(harness(const EditProfileScreen(), repository));
@@ -408,6 +409,8 @@ void main() {
           displayName: 'Seven Glow',
           bio: 'Lowkey iconic.',
           countryCode: 'CH',
+          avatarPath: null,
+          removeAvatar: false,
         ),
       ).called(1);
     });
