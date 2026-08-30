@@ -2,7 +2,9 @@
 
 SVNLY gives every user the same UTC-based daily video prompt. The camera records automatically for seven seconds after a 3–2–1 countdown. There is no gallery import, stop button or voluntary retake. A technical retry is available only when the server verifies that no valid upload was finalized.
 
-The feed is intentionally locked until the user submits today’s take. This is the normal product for every user, not a reviewer-only restriction.
+The feed is intentionally locked until the user submits today’s take. This is the normal product for every user, not a reviewer-only restriction. Submission unlock is recorded independently from moderation, so a processing or human-review delay never relocks a completed participant.
+
+The final encoded seven-second video produces three fixed-time moderation frames. The private, immutable frames are checked automatically with OpenAI's Moderation endpoint. Harmless content is published, clear high-confidence violations are rejected/hidden, and borderline cases go to human review. Reports and blocks are available from content/profile actions. Moderators cannot approve their own takes.
 
 ## Review path
 
@@ -22,4 +24,4 @@ SVNLY Plus is not part of this review submission. No in-app purchase should be r
 - Their email/password values come from the encrypted Codemagic variables `APP_REVIEW_PRIMARY_*` and `APP_REVIEW_SECONDARY_*`; credentials are entered in App Store Connect review notes and are never committed.
 - `node tool/provision_review_accounts.mjs` creates or repairs both accounts idempotently and verifies both production profiles. The TestFlight workflow runs this before signing.
 
-Neither account receives a hidden challenge or moderation bypass. Both begin each UTC day without a take; the reviewer records normally. If automated moderation delays publication, the take displays its normal processing/review state.
+Neither account receives a hidden challenge or moderation bypass. Both begin each UTC day without a take; the reviewer records normally. If automated moderation routes a take to human review, the take displays its normal review state while participation remains complete.

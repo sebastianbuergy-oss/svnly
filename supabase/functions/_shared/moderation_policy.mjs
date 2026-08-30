@@ -12,6 +12,8 @@ const retryableExtractionErrors = new Set([
   'video_signing_failed',
   'trusted_extraction_failed',
   'video_download_failed',
+  'moderation_frames_missing',
+  'manifest_write_failed',
 ]);
 
 export function isRetryableExtractionError(code) {

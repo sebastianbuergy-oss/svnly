@@ -190,6 +190,7 @@ class SupabaseAppRepository implements AppRepository {
   Future<void> finalizeTake({
     required TakeAttempt attempt,
     required Uint8List videoBytes,
+    required List<Uint8List> moderationFrames,
     required int durationMs,
     required String look,
   }) async {
@@ -197,6 +198,13 @@ class SupabaseAppRepository implements AppRepository {
       throw StateError(
         'Recorded video is missing or exceeds the upload limit.',
       );
+    }
+    if (moderationFrames.length != 3 ||
+        moderationFrames.any(
+          (frame) =>
+              frame.lengthInBytes < 256 || frame.lengthInBytes > 1024 * 1024,
+        )) {
+      throw StateError('Recorded video moderation frames are invalid.');
     }
     final takeId = await _client.rpc(
       'reserve_take_upload',
@@ -209,17 +217,21 @@ class SupabaseAppRepository implements AppRepository {
       },
     ) as String;
     final path = '${userId!}/${attempt.id}/$takeId/video.mp4';
-    await _client.storage
-        .from('takes')
-        .uploadBinary(
-          path,
-          videoBytes,
-          fileOptions: const FileOptions(
-            contentType: 'video/mp4',
-            cacheControl: '0',
-            upsert: false,
-          ),
-        );
+    await _uploadImmutable(
+      bucket: 'takes',
+      path: path,
+      bytes: videoBytes,
+      contentType: 'video/mp4',
+    );
+    for (var index = 0; index < moderationFrames.length; index++) {
+      final name = 'frame-${(index + 1).toString().padLeft(2, '0')}.jpg';
+      await _uploadImmutable(
+        bucket: 'moderation-artifacts',
+        path: '$takeId/frames/$name',
+        bytes: moderationFrames[index],
+        contentType: 'image/jpeg',
+      );
+    }
     await _client.rpc(
       'finalize_take',
       params: {
@@ -234,6 +246,32 @@ class SupabaseAppRepository implements AppRepository {
       await _client.functions.invoke('moderate-take', body: {'takeId': takeId});
     } catch (_) {
       // A scheduled server worker retries unresolved moderation queue items.
+    }
+  }
+
+  Future<void> _uploadImmutable({
+    required String bucket,
+    required String path,
+    required Uint8List bytes,
+    required String contentType,
+  }) async {
+    try {
+      await _client.storage
+          .from(bucket)
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: FileOptions(
+              contentType: contentType,
+              cacheControl: '0',
+              upsert: false,
+            ),
+          );
+    } on StorageException catch (error) {
+      // A lost finalize response can leave the immutable upload in Storage.
+      // The reserved take/path is idempotent, so an existing object is safe to
+      // reuse while every other Storage failure must remain retryable locally.
+      if (error.statusCode != '409') rethrow;
     }
   }
 

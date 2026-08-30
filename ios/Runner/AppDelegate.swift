@@ -1,6 +1,7 @@
 import Flutter
 import AVFoundation
 import CoreImage
+import ImageIO
 import UIKit
 import UserNotifications
 
@@ -24,31 +25,62 @@ import UserNotifications
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
     channel.setMethodCallHandler { call, result in
-      guard call.method == "burnLiveLook",
-            let arguments = call.arguments as? [String: Any],
-            let inputPath = arguments["inputPath"] as? String,
-            let outputPath = arguments["outputPath"] as? String,
-            let look = arguments["look"] as? String else {
+      guard let arguments = call.arguments as? [String: Any] else {
         result(FlutterMethodNotImplemented)
         return
       }
-      LiveLookVideoProcessor().process(
-        inputURL: URL(fileURLWithPath: inputPath),
-        outputURL: URL(fileURLWithPath: outputPath),
-        look: look
-      ) { processingResult in
-        DispatchQueue.main.async {
-          switch processingResult {
-          case .success(let proof):
-            result(proof)
-          case .failure(let error):
-            result(FlutterError(
-              code: "LIVE_LOOK_EXPORT_FAILED",
-              message: error.localizedDescription,
-              details: nil
-            ))
+
+      switch call.method {
+      case "burnLiveLook":
+        guard let inputPath = arguments["inputPath"] as? String,
+              let outputPath = arguments["outputPath"] as? String,
+              let look = arguments["look"] as? String else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        LiveLookVideoProcessor().process(
+          inputURL: URL(fileURLWithPath: inputPath),
+          outputURL: URL(fileURLWithPath: outputPath),
+          look: look
+        ) { processingResult in
+          DispatchQueue.main.async {
+            switch processingResult {
+            case .success(let proof):
+              result(proof)
+            case .failure(let error):
+              result(FlutterError(
+                code: "LIVE_LOOK_EXPORT_FAILED",
+                message: error.localizedDescription,
+                details: nil
+              ))
+            }
           }
         }
+      case "extractModerationFrames":
+        guard let inputPath = arguments["inputPath"] as? String else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+          do {
+            let frames = try ModerationFrameExtractor().extract(
+              inputURL: URL(fileURLWithPath: inputPath)
+            )
+            DispatchQueue.main.async {
+              result(frames.map { FlutterStandardTypedData(bytes: $0) })
+            }
+          } catch {
+            DispatchQueue.main.async {
+              result(FlutterError(
+                code: "MODERATION_FRAME_EXTRACTION_FAILED",
+                message: error.localizedDescription,
+                details: nil
+              ))
+            }
+          }
+        }
+      default:
+        result(FlutterMethodNotImplemented)
       }
     }
 
@@ -155,6 +187,60 @@ import UserNotifications
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     completionHandler([.banner, .badge, .sound])
+  }
+}
+
+enum ModerationFrameExtractorError: LocalizedError {
+  case frameUnavailable
+  case encodingFailed
+
+  var errorDescription: String? {
+    switch self {
+    case .frameUnavailable: return "A moderation frame could not be read from the final video."
+    case .encodingFailed: return "A moderation frame could not be encoded as JPEG."
+    }
+  }
+}
+
+final class ModerationFrameExtractor {
+  private let frameTimes = [0.70, 3.50, 6.30]
+
+  func extract(inputURL: URL) throws -> [Data] {
+    let generator = AVAssetImageGenerator(asset: AVURLAsset(url: inputURL))
+    generator.appliesPreferredTrackTransform = true
+    generator.maximumSize = CGSize(width: 720, height: 720)
+    generator.requestedTimeToleranceBefore = CMTime(seconds: 0.15, preferredTimescale: 600)
+    generator.requestedTimeToleranceAfter = CMTime(seconds: 0.15, preferredTimescale: 600)
+
+    return try frameTimes.map { seconds in
+      let image: CGImage
+      do {
+        image = try generator.copyCGImage(
+          at: CMTime(seconds: seconds, preferredTimescale: 600),
+          actualTime: nil
+        )
+      } catch {
+        throw ModerationFrameExtractorError.frameUnavailable
+      }
+      let data = NSMutableData()
+      guard let destination = CGImageDestinationCreateWithData(
+              data as CFMutableData,
+              "public.jpeg" as CFString,
+              1,
+              nil
+            ) else {
+        throw ModerationFrameExtractorError.encodingFailed
+      }
+      CGImageDestinationAddImage(
+        destination,
+        image,
+        [kCGImageDestinationLossyCompressionQuality: 0.82] as CFDictionary
+      )
+      guard CGImageDestinationFinalize(destination), data.length >= 256 else {
+        throw ModerationFrameExtractorError.encodingFailed
+      }
+      return data as Data
+    }
   }
 }
 

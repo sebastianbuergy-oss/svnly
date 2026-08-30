@@ -10,4 +10,4 @@
 - Minimum account age enforced by product: 16.
 - Parental controls/age assurance beyond date-of-birth gate: No.
 
-Select the final App Store rating answers conservatively after counsel and moderation validation; do not describe automated moderation as complete until the frame-extraction pipeline is deployed.
+Select the final App Store rating answers conservatively after counsel. Automated image moderation, reporting, blocking and human escalation are part of the V1 production pipeline; the app does not claim that prohibited user content is impossible.

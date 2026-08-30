@@ -35,6 +35,21 @@ final class RunnerTests: XCTestCase {
     XCTAssertLessThan(abs(Int(pixel.1) - Int(pixel.2)), 12)
   }
 
+  func testFinalVideoProducesThreeBoundedJpegModerationFrames() throws {
+    let input = temporaryURL("moderation-source.mov")
+    try makeSolidRedVideo(at: input)
+
+    let frames = try ModerationFrameExtractor().extract(inputURL: input)
+
+    XCTAssertEqual(frames.count, 3)
+    for frame in frames {
+      XCTAssertGreaterThanOrEqual(frame.count, 256)
+      XCTAssertLessThanOrEqual(frame.count, 1024 * 1024)
+      XCTAssertEqual(Array(frame.prefix(2)), [0xff, 0xd8])
+      XCTAssertEqual(Array(frame.suffix(2)), [0xff, 0xd9])
+    }
+  }
+
   private func temporaryURL(_ name: String) -> URL {
     let directory = FileManager.default.temporaryDirectory
       .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -72,7 +87,7 @@ final class RunnerTests: XCTestCase {
       XCTFail("Missing pixel buffer pool")
       return
     }
-    for index in 0..<6 {
+    for index in 0..<210 {
       var buffer: CVPixelBuffer?
       XCTAssertEqual(
         CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer),

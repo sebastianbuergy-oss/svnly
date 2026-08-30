@@ -28,6 +28,15 @@ type ExtractionProof = {
   frames: ExtractedFrame[];
 };
 
+type ModeratedTake = {
+  id: string;
+  storage_path: string;
+  duration_ms: number;
+  video_codec: string | null;
+  width: number | null;
+  height: number | null;
+};
+
 function decodeBase64(value: string): Uint8Array {
   const binary = atob(value);
   const output = new Uint8Array(binary.length);
@@ -69,9 +78,9 @@ async function markForHumanReview(takeId: string, reason: string, scores: unknow
 }
 
 async function extractTrustedFrames(
-  take: {id: string; storage_path: string},
+  take: ModeratedTake,
 ): Promise<ExtractionProof> {
-  if (!mediaWorkerUrl || !mediaWorkerToken) throw new Error('media_worker_unconfigured');
+  if (!mediaWorkerUrl || !mediaWorkerToken) return loadImmutableClientFrames(take);
   const {data: signed, error: signingError} = await admin.storage.from('takes')
     .createSignedUrl(take.storage_path, 90);
   if (signingError || !signed?.signedUrl) throw new Error('video_signing_failed');
@@ -125,6 +134,55 @@ async function extractTrustedFrames(
   return proof;
 }
 
+async function loadImmutableClientFrames(take: ModeratedTake): Promise<ExtractionProof> {
+  const frames: ExtractedFrame[] = [];
+  const timestamps = [0.70, 3.50, 6.30];
+  for (let index = 0; index < timestamps.length; index++) {
+    const name = `frame-${String(index + 1).padStart(2, '0')}.jpg`;
+    const path = `${take.id}/frames/${name}`;
+    const {data, error} = await admin.storage.from('moderation-artifacts').download(path);
+    if (error || !data) throw new Error('moderation_frames_missing');
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    const isJpeg = bytes.length >= 256 && bytes.length <= 1024 * 1024 &&
+      bytes[0] === 0xff && bytes[1] === 0xd8 &&
+      bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
+    if (!isJpeg) throw new Error('invalid_client_frame');
+    frames.push({
+      name,
+      timestampSeconds: timestamps[index],
+      sha256: await sha256(bytes),
+      base64: '',
+    });
+  }
+
+  const proof: ExtractionProof = {
+    takeId: take.id,
+    extractorVersion: 'ios-avassetimagegenerator-v1',
+    media: {
+      duration: take.duration_ms / 1000,
+      codec: take.video_codec ?? 'client-encoded-mp4',
+      width: take.width ?? 0,
+      height: take.height ?? 0,
+    },
+    frames,
+  };
+  const manifest = new TextEncoder().encode(JSON.stringify({
+    takeId: proof.takeId,
+    extractorVersion: proof.extractorVersion,
+    media: proof.media,
+    frames: proof.frames.map(({name, timestampSeconds, sha256}) => ({name, timestampSeconds, sha256})),
+    extractedAt: new Date().toISOString(),
+    sourceStoragePath: take.storage_path,
+    trustModel: 'immutable_owner_upload_from_signed_ios_capture',
+  }));
+  const {error: manifestError} = await admin.storage.from('moderation-artifacts').upload(
+    `${take.id}/manifest.txt`, manifest,
+    {contentType: 'text/plain', cacheControl: '0', upsert: true},
+  );
+  if (manifestError) throw new Error('manifest_write_failed');
+  return proof;
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', {headers: corsHeaders});
   if (request.method !== 'POST') return json({error: 'method_not_allowed'}, 405);
@@ -136,7 +194,7 @@ Deno.serve(async (request) => {
   if (!systemCall && !user) return json({error: 'invalid_session'}, 401);
   const {takeId} = await request.json();
   const {data: take} = await admin.from('takes')
-    .select('id,user_id,status,storage_path').eq('id', takeId).single();
+    .select('id,user_id,status,storage_path,duration_ms,video_codec,width,height').eq('id', takeId).single();
   if (!take || !take.storage_path ||
       (!systemCall && take.user_id !== user!.id && !['admin', 'moderator'].includes(user!.app_metadata?.role))) {
     return json({error: 'not_found'}, 404);

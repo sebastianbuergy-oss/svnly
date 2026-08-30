@@ -64,6 +64,7 @@ class PendingUploadStore {
     await repository.finalizeTake(
       attempt: attempt,
       videoBytes: await uploadFile.readAsBytes(),
+      moderationFrames: await ModerationFrameExtractor.extract(uploadFile),
       durationMs: value['duration_ms'] as int,
       look: value['look'] as String,
     );

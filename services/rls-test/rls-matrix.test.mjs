@@ -89,6 +89,7 @@ async function applyMigrations() {
     '202608300015_social_visibility_guard.sql',
     '202608300016_profile_avatar_persistence.sql',
     '202608300017_moderation_release_gate.sql',
+    '202608300019_client_moderation_frames.sql',
   ]) {
     await db.exec(await readFile(join(root, 'supabase', 'migrations', name), 'utf8'));
   }
@@ -225,6 +226,23 @@ test('anonymous role has no access to protected profile data', async () => {
   await db.exec('reset role; set role anon');
   await assert.rejects(() => db.query('select * from public.profiles'));
   await db.exec('reset role');
+});
+
+test('owner can insert exactly three immutable moderation frames only for a reserved take', async () => {
+  const valid = `${ids.pendingTake}/frames/frame-01.jpg`;
+  await asUser(ids.alice,
+    `insert into storage.objects(bucket_id,name,owner_id) values('moderation-artifacts','${valid}','${ids.alice}')`);
+  assert.equal((await owner(`select count(*)::integer count from storage.objects
+    where bucket_id='moderation-artifacts' and name='${valid}'`)).rows[0].count, 1);
+  await assert.rejects(() => asUser(ids.bob,
+    `insert into storage.objects(bucket_id,name,owner_id) values('moderation-artifacts','${ids.pendingTake}/frames/frame-02.jpg','${ids.bob}')`));
+  await assert.rejects(() => asUser(ids.alice,
+    `insert into storage.objects(bucket_id,name,owner_id) values('moderation-artifacts','${ids.pendingTake}/frames/frame-04.jpg','${ids.alice}')`));
+  await asUser(ids.alice,
+    `update storage.objects set name='${ids.pendingTake}/frames/frame-02.jpg'
+      where bucket_id='moderation-artifacts' and name='${valid}'`);
+  assert.equal((await owner(`select name from storage.objects
+    where bucket_id='moderation-artifacts' and name='${valid}'`)).rows[0].name, valid);
 });
 
 test('staff cannot moderate their own take but can decide another users queue item', async () => {

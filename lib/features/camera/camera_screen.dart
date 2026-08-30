@@ -199,11 +199,15 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       final bytes = await processed.file.readAsBytes();
       var uploaded = false;
       try {
+        final moderationFrames = await ModerationFrameExtractor.extract(
+          processed.file,
+        );
         await ref
             .read(appRepositoryProvider)
             .finalizeTake(
               attempt: attempt!,
               videoBytes: bytes,
+              moderationFrames: moderationFrames,
               durationMs: duration,
               look: look,
             );

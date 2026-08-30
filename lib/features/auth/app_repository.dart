@@ -35,6 +35,7 @@ abstract interface class AppRepository {
   Future<void> finalizeTake({
     required TakeAttempt attempt,
     required Uint8List videoBytes,
+    required List<Uint8List> moderationFrames,
     required int durationMs,
     required String look,
   });
@@ -102,6 +103,7 @@ class UnconfiguredRepository implements AppRepository {
   Future<void> finalizeTake({
     required TakeAttempt attempt,
     required Uint8List videoBytes,
+    required List<Uint8List> moderationFrames,
     required int durationMs,
     required String look,
   }) async => _missing();
