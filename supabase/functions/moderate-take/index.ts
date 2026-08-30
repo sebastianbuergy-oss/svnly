@@ -1,5 +1,9 @@
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 import {corsHeaders, json} from '../_shared/cors.ts';
+import {
+  classifyModerationResults,
+  isRetryableExtractionError,
+} from '../_shared/moderation_policy.mjs';
 
 const url = Deno.env.get('SUPABASE_URL')!;
 const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -43,9 +47,25 @@ async function matchesSecret(expected: string, supplied: string): Promise<boolea
   return hashes[0].every((byte, index) => byte === hashes[1][index]);
 }
 
-async function markForHumanReview(takeId: string, reason: string) {
+async function markForRetry(takeId: string, reason: string) {
+  await admin.from('takes').update({
+    status: 'processing', moderation_reason: `automation_retry:${reason}`,
+  }).eq('id', takeId);
+  await admin.from('moderation_queue').update({
+    priority: 60,
+    automation_last_error: reason,
+    automation_last_attempt_at: new Date().toISOString(),
+  }).eq('target_id', takeId).eq('status', 'open');
+}
+
+async function markForHumanReview(takeId: string, reason: string, scores: unknown) {
   await admin.from('takes').update({status: 'under_review', moderation_reason: reason}).eq('id', takeId);
-  await admin.from('moderation_queue').update({priority: 80}).eq('target_id', takeId).eq('status', 'open');
+  await admin.from('moderation_queue').update({
+    priority: 80,
+    automated_scores: {decision: 'review', results: scores},
+    automation_last_error: null,
+    automation_last_attempt_at: new Date().toISOString(),
+  }).eq('target_id', takeId).eq('status', 'open');
 }
 
 async function extractTrustedFrames(
@@ -65,7 +85,10 @@ async function extractTrustedFrames(
     body: JSON.stringify({takeId: take.id, videoUrl: signed.signedUrl}),
     signal: AbortSignal.timeout(55_000),
   });
-  if (!response.ok) throw new Error('trusted_extraction_failed');
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as {error?: string} | null;
+    throw new Error(payload?.error ?? 'trusted_extraction_failed');
+  }
   const proof = await response.json() as ExtractionProof;
   if (proof.takeId !== take.id || proof.frames?.length !== 3 ||
       proof.media.duration < 6.5 || proof.media.duration > 8.5) {
@@ -118,19 +141,32 @@ Deno.serve(async (request) => {
       (!systemCall && take.user_id !== user!.id && !['admin', 'moderator'].includes(user!.app_metadata?.role))) {
     return json({error: 'not_found'}, 404);
   }
-  if (!['processing', 'under_review'].includes(take.status)) {
+  if (take.status !== 'processing') {
     return json({status: take.status});
   }
 
   try {
     await extractTrustedFrames(take);
   } catch (error) {
-    await markForHumanReview(takeId, error instanceof Error ? error.message : 'extraction_failed');
-    return json({status: 'under_review'});
+    const reason = error instanceof Error ? error.message : 'extraction_failed';
+    if (isRetryableExtractionError(reason)) {
+      await markForRetry(takeId, reason);
+      return json({status: 'processing', retryable: true}, 503);
+    }
+    await admin.from('takes').update({
+      status: 'rejected', moderation_reason: reason, published_at: null,
+    }).eq('id', takeId);
+    await admin.from('moderation_queue').update({
+      status: 'resolved', resolved_at: new Date().toISOString(),
+      automated_scores: {decision: 'reject', reason},
+      automation_last_error: null,
+      automation_last_attempt_at: new Date().toISOString(),
+    }).eq('target_id', takeId).eq('status', 'open');
+    return json({status: 'rejected'});
   }
   if (!openAiKey) {
-    await markForHumanReview(takeId, 'automated_check_unavailable');
-    return json({status: 'under_review'});
+    await markForRetry(takeId, 'automated_check_unavailable');
+    return json({status: 'processing', retryable: true}, 503);
   }
 
   const imageInputs = [];
@@ -138,8 +174,8 @@ Deno.serve(async (request) => {
     const {data, error} = await admin.storage.from('moderation-artifacts')
       .createSignedUrl(`${takeId}/frames/${name}`, 60);
     if (error || !data?.signedUrl) {
-      await markForHumanReview(takeId, 'frame_signing_failed');
-      return json({status: 'under_review'});
+      await markForRetry(takeId, 'frame_signing_failed');
+      return json({status: 'processing', retryable: true}, 503);
     }
     imageInputs.push({type: 'image_url', image_url: {url: data.signedUrl}});
   }
@@ -149,20 +185,34 @@ Deno.serve(async (request) => {
     body: JSON.stringify({model: 'omni-moderation-latest', input: imageInputs}),
   });
   if (!response.ok) {
-    await markForHumanReview(takeId, 'moderation_provider_error');
-    return json({status: 'under_review'});
+    await markForRetry(takeId, 'moderation_provider_error');
+    return json({status: 'processing', retryable: true}, 503);
   }
   const result = await response.json();
-  const flagged = Boolean(result.results?.some((entry: {flagged?: boolean}) => entry.flagged));
+  let decision: 'publish' | 'review' | 'reject';
+  try {
+    decision = classifyModerationResults(result.results);
+  } catch {
+    await markForRetry(takeId, 'invalid_moderation_response');
+    return json({status: 'processing', retryable: true}, 503);
+  }
+  if (decision === 'review') {
+    await markForHumanReview(takeId, 'automated_flag', result.results);
+    return json({status: 'under_review'});
+  }
+
+  const status = decision === 'reject' ? 'rejected' : 'published';
   await admin.from('takes').update({
-    status: flagged ? 'under_review' : 'published',
-    published_at: flagged ? null : new Date().toISOString(),
-    moderation_reason: flagged ? 'automated_flag' : null,
+    status,
+    published_at: decision === 'publish' ? new Date().toISOString() : null,
+    moderation_reason: decision === 'reject' ? 'automated_reject' : null,
   }).eq('id', takeId);
   await admin.from('moderation_queue').update({
-    status: flagged ? 'open' : 'resolved',
-    automated_scores: result.results ?? {},
-    resolved_at: flagged ? null : new Date().toISOString(),
+    status: 'resolved',
+    automated_scores: {decision, results: result.results},
+    resolved_at: new Date().toISOString(),
+    automation_last_error: null,
+    automation_last_attempt_at: new Date().toISOString(),
   }).eq('target_id', takeId).eq('status', 'open');
-  return json({status: flagged ? 'under_review' : 'published'});
+  return json({status});
 });

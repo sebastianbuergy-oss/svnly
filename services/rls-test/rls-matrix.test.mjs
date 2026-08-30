@@ -88,6 +88,7 @@ async function applyMigrations() {
     '202608300014_build11_profile_compatibility.sql',
     '202608300015_social_visibility_guard.sql',
     '202608300016_profile_avatar_persistence.sql',
+    '202608300017_moderation_release_gate.sql',
   ]) {
     await db.exec(await readFile(join(root, 'supabase', 'migrations', name), 'utf8'));
   }
@@ -224,6 +225,31 @@ test('anonymous role has no access to protected profile data', async () => {
   await db.exec('reset role; set role anon');
   await assert.rejects(() => db.query('select * from public.profiles'));
   await db.exec('reset role');
+});
+
+test('staff cannot moderate their own take but can decide another users queue item', async () => {
+  const adminAttempt = '30000000-0000-4000-8000-000000000008';
+  const adminTake = '20000000-0000-4000-8000-000000000008';
+  await owner(`insert into public.take_attempts(id,user_id,challenge_id,nonce,status,finalized_at)
+    values('${adminAttempt}','${ids.admin}','${ids.challenge}',gen_random_uuid(),'finalized',now())`);
+  await owner(`insert into public.takes(id,user_id,challenge_id,attempt_id,storage_path,duration_ms,file_size,status)
+    values('${adminTake}','${ids.admin}','${ids.challenge}','${adminAttempt}',
+      '${ids.admin}/${adminAttempt}/${adminTake}/video.mp4',7000,1000,'under_review')`);
+  const ownQueue = await owner(`insert into public.moderation_queue(target_type,target_id,source)
+    values('take','${adminTake}',$1) returning id`, ['automated']);
+  await assert.rejects(
+    () => asUser(ids.admin,
+      `select public.admin_apply_moderation('${ownQueue.rows[0].id}','publish','self approval',null)`, [], 'moderator'),
+    /self_moderation_forbidden/,
+  );
+
+  const otherQueue = await owner(`select id from public.moderation_queue
+    where target_id='${ids.bobTake}' and status='open' limit 1`);
+  await asUser(ids.admin,
+    `select public.admin_apply_moderation('${otherQueue.rows[0].id}','publish','safe content',null)`, [], 'moderator');
+  const decided = await owner(`select t.status,q.status queue_status from public.takes t
+    join public.moderation_queue q on q.target_id=t.id where t.id='${ids.bobTake}'`);
+  assert.deepEqual(decided.rows[0], {status: 'published', queue_status: 'resolved'});
 });
 
 test('a finalized take unlocks the feed throughout moderation', async () => {
