@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
+import '../../core/config/build_identity.dart';
 import '../../core/design/tokens.dart';
 import '../../core/widgets/brand.dart';
 
@@ -342,22 +343,25 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('ABOUT')),
-    body: const SafeArea(
-      minimum: EdgeInsets.all(24),
+    body: SafeArea(
+      minimum: const EdgeInsets.all(24),
       child: Column(
         children: [
-          Spacer(),
-          SvnlyWordmark(fontSize: 52),
-          SizedBox(height: 14),
-          Text('7 seconds. One take. Be real.'),
-          SizedBox(height: 30),
-          Text('Version 1.0.0 (1)'),
-          Spacer(),
+          const Spacer(),
+          const SvnlyWordmark(fontSize: 52),
+          const SizedBox(height: 14),
+          const Text('7 seconds. One take. Be real.'),
+          const SizedBox(height: 30),
           Text(
+            BuildIdentity.label,
+            key: const ValueKey('about_build_identity'),
+          ),
+          const Spacer(),
+          const Text(
             'Everyone gets the same prompt.\nEveryone gets seven seconds.\nEveryone gets one take.',
             textAlign: TextAlign.center,
           ),
-          Spacer(),
+          const Spacer(),
         ],
       ),
     ),

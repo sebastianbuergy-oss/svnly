@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/providers.dart';
 import '../../core/config/app_config.dart';
+import '../../core/config/build_identity.dart';
 import '../../core/design/tokens.dart';
 import '../moderation/admin_repository.dart';
 
@@ -99,7 +100,20 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/delete-account'),
           ),
-          const SizedBox(height: 36),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+            child: Text(
+              BuildIdentity.label,
+              key: const ValueKey('settings_build_identity'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: SvnlyColors.secondaryText,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: .4,
+              ),
+            ),
+          ),
         ],
       ),
     );

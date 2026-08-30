@@ -234,6 +234,15 @@ void main() {
     });
   });
 
+  testWidgets('about exposes the signed build number and commit identity', (
+    tester,
+  ) async {
+    await tester.pumpWidget(harness(const AboutScreen(), repository));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('about_build_identity')), findsOneWidget);
+    expect(find.text('Build local · developm'), findsOneWidget);
+  });
+
   group('ranking widgets', () {
     testWidgets('ranking renders authoritative rank and score', (tester) async {
       when(() => repository.loadRankings(any(), any())).thenAnswer(
