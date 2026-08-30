@@ -16,7 +16,14 @@ test('V1 moderation falls back to immutable private frames without a media worke
   assert.match(edge, /frame-01\.jpg', 'frame-02\.jpg', 'frame-03\.jpg/);
   assert.match(edge, /https:\/\/api\.openai\.com\/v1\/moderations/);
   assert.match(edge, /model: 'omni-moderation-latest'/);
+  assert.match(edge, /for \(const imageInput of imageInputs\)/);
+  assert.match(edge, /input: \[imageInput\]/);
+  assert.match(edge, /results\.push\(payload\.results\[0\]\)/);
+  assert.match(edge, /AbortSignal\.timeout\(20_000\)/);
+  assert.match(edge, /catch \{[\s\S]*markForRetry\(takeId, 'moderation_provider_unavailable'\)/);
   assert.match(edge, /trustModel: 'immutable_owner_upload_from_signed_ios_capture'/);
+  assert.match(edge, /if \(!response\.ok\) \{[\s\S]*markForRetry\(takeId, reason\)/);
+  assert.match(edge, /moderation_provider_error:\$\{response\.status\}/);
 });
 
 test('moderation artifacts are insert-only and scoped to the reserved owner take', () => {

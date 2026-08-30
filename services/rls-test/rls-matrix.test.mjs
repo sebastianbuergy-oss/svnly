@@ -90,6 +90,7 @@ async function applyMigrations() {
     '202608300016_profile_avatar_persistence.sql',
     '202608300017_moderation_release_gate.sql',
     '202608300019_client_moderation_frames.sql',
+    '202608300020_moderation_queue_cleanup.sql',
   ]) {
     await db.exec(await readFile(join(root, 'supabase', 'migrations', name), 'utf8'));
   }
@@ -268,6 +269,25 @@ test('staff cannot moderate their own take but can decide another users queue it
   const decided = await owner(`select t.status,q.status queue_status from public.takes t
     join public.moderation_queue q on q.target_id=t.id where t.id='${ids.bobTake}'`);
   assert.deepEqual(decided.rows[0], {status: 'published', queue_status: 'resolved'});
+});
+
+test('deleting a take removes its polymorphic moderation queue target', async () => {
+  const user = '00000000-0000-4000-8000-000000000009';
+  const attempt = '30000000-0000-4000-8000-000000000009';
+  const take = '20000000-0000-4000-8000-000000000009';
+  await owner(`insert into auth.users(id) values('${user}')`);
+  await owner(`insert into public.take_attempts(id,user_id,challenge_id,nonce,status,finalized_at)
+    values('${attempt}','${user}','${ids.challenge}',gen_random_uuid(),'finalized',now())`);
+  await owner(`insert into public.takes(id,user_id,challenge_id,attempt_id,storage_path,duration_ms,file_size,status)
+    values('${take}','${user}','${ids.challenge}','${attempt}',
+      '${user}/${attempt}/${take}/video.mp4',7000,1000,'under_review')`);
+  await owner(`insert into public.moderation_queue(target_type,target_id,source)
+    values('take','${take}','automated')`);
+
+  await owner(`delete from public.takes where id='${take}'`);
+
+  assert.equal((await owner(`select count(*)::integer count from public.moderation_queue
+    where target_type='take' and target_id='${take}'`)).rows[0].count, 0);
 });
 
 test('a finalized take unlocks the feed throughout moderation', async () => {

@@ -67,6 +67,17 @@ async function markForRetry(takeId: string, reason: string) {
   }).eq('target_id', takeId).eq('status', 'open');
 }
 
+function safeProviderErrorCode(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return 'unknown';
+  const error = (payload as {error?: unknown}).error;
+  if (!error || typeof error !== 'object') return 'unknown';
+  const candidate = (error as {code?: unknown; type?: unknown}).code ??
+    (error as {type?: unknown}).type;
+  return typeof candidate === 'string' && /^[a-z0-9_.-]{1,80}$/i.test(candidate)
+    ? candidate
+    : 'unknown';
+}
+
 async function markForHumanReview(takeId: string, reason: string, scores: unknown) {
   await admin.from('takes').update({status: 'under_review', moderation_reason: reason}).eq('id', takeId);
   await admin.from('moderation_queue').update({
@@ -237,25 +248,42 @@ Deno.serve(async (request) => {
     }
     imageInputs.push({type: 'image_url', image_url: {url: data.signedUrl}});
   }
-  const response = await fetch('https://api.openai.com/v1/moderations', {
-    method: 'POST',
-    headers: {'Authorization': `Bearer ${openAiKey}`, 'Content-Type': 'application/json'},
-    body: JSON.stringify({model: 'omni-moderation-latest', input: imageInputs}),
-  });
-  if (!response.ok) {
-    await markForRetry(takeId, 'moderation_provider_error');
-    return json({status: 'processing', retryable: true}, 503);
+  const results = [];
+  for (const imageInput of imageInputs) {
+    let response: Response;
+    try {
+      response = await fetch('https://api.openai.com/v1/moderations', {
+        method: 'POST',
+        headers: {'Authorization': `Bearer ${openAiKey}`, 'Content-Type': 'application/json'},
+        body: JSON.stringify({model: 'omni-moderation-latest', input: [imageInput]}),
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch {
+      await markForRetry(takeId, 'moderation_provider_unavailable');
+      return json({status: 'processing', retryable: true}, 503);
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      const reason = `moderation_provider_error:${response.status}:${safeProviderErrorCode(payload)}`;
+      await markForRetry(takeId, reason);
+      return json({status: 'processing', retryable: true}, 503);
+    }
+    const payload = await response.json();
+    if (!Array.isArray(payload?.results) || payload.results.length !== 1) {
+      await markForRetry(takeId, 'invalid_moderation_response');
+      return json({status: 'processing', retryable: true}, 503);
+    }
+    results.push(payload.results[0]);
   }
-  const result = await response.json();
   let decision: 'publish' | 'review' | 'reject';
   try {
-    decision = classifyModerationResults(result.results);
+    decision = classifyModerationResults(results);
   } catch {
     await markForRetry(takeId, 'invalid_moderation_response');
     return json({status: 'processing', retryable: true}, 503);
   }
   if (decision === 'review') {
-    await markForHumanReview(takeId, 'automated_flag', result.results);
+    await markForHumanReview(takeId, 'automated_flag', results);
     return json({status: 'under_review'});
   }
 
@@ -267,7 +295,7 @@ Deno.serve(async (request) => {
   }).eq('id', takeId);
   await admin.from('moderation_queue').update({
     status: 'resolved',
-    automated_scores: {decision, results: result.results},
+    automated_scores: {decision, results},
     resolved_at: new Date().toISOString(),
     automation_last_error: null,
     automation_last_attempt_at: new Date().toISOString(),
