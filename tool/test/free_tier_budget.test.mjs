@@ -22,5 +22,5 @@ test('media retention has a hard 21-day ceiling', () => {
   assert.match(scheduler, /freeTierRetentionDays = 21/);
   assert.match(scheduler, /Math\.min\(requestedDays \?\? freeTierRetentionDays/);
   assert.match(scheduler, /storage\.from\(bucket\)\.remove\(paths\)/);
-  assert.match(scheduler, /removeIfPresent\(admin, 'takes'/);
+  assert.match(scheduler, /removeIfPresent\('takes'/);
 });

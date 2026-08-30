@@ -22,21 +22,16 @@ async function callInternal(name: string, body: Record<string, unknown> = {}): P
   return response.ok;
 }
 
-async function removeIfPresent(
-  admin: ReturnType<typeof createClient>,
-  bucket: string,
-  paths: string[],
-): Promise<void> {
-  if (paths.length === 0) return;
-  const {error} = await admin.storage.from(bucket).remove(paths);
-  if (error) throw error;
-}
-
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', {headers: corsHeaders});
   if (request.method !== 'POST') return json({error: 'method_not_allowed'}, 405);
   if (!await authorized(request)) return json({error: 'unauthorized'}, 401);
   const admin = createClient(url, serviceKey, {auth: {persistSession: false}});
+  const removeIfPresent = async (bucket: string, paths: string[]): Promise<void> => {
+    if (paths.length === 0) return;
+    const {error} = await admin.storage.from(bucket).remove(paths);
+    if (error) throw error;
+  };
   try {
     // A voluntary deletion is hidden transactionally before Storage cleanup.
     // Retry any private bytes whose receipt is still attached to that row.
@@ -50,13 +45,12 @@ Deno.serve(async (request) => {
     let voluntaryMediaDeleted = 0;
     for (const take of pendingDeletionMedia ?? []) {
       try {
-        await removeIfPresent(admin, 'takes', take.storage_path ? [take.storage_path] : []);
+        await removeIfPresent('takes', take.storage_path ? [take.storage_path] : []);
         await removeIfPresent(
-          admin,
           'take-thumbnails',
           take.thumbnail_path ? [take.thumbnail_path] : [],
         );
-        await removeIfPresent(admin, 'moderation-artifacts', [
+        await removeIfPresent('moderation-artifacts', [
           `${take.id}/frames/frame-01.jpg`, `${take.id}/frames/frame-02.jpg`,
           `${take.id}/frames/frame-03.jpg`, `${take.id}/manifest.txt`,
         ]);
@@ -105,13 +99,12 @@ Deno.serve(async (request) => {
       const days = Math.min(requestedDays ?? freeTierRetentionDays, freeTierRetentionDays);
       if (new Date(take.created_at).getTime() > Date.now() - days * 86400000) continue;
       try {
-        await removeIfPresent(admin, 'takes', take.storage_path ? [take.storage_path] : []);
+        await removeIfPresent('takes', take.storage_path ? [take.storage_path] : []);
         await removeIfPresent(
-          admin,
           'take-thumbnails',
           take.thumbnail_path ? [take.thumbnail_path] : [],
         );
-        await removeIfPresent(admin, 'moderation-artifacts', [
+        await removeIfPresent('moderation-artifacts', [
           `${take.id}/frames/frame-01.jpg`, `${take.id}/frames/frame-02.jpg`,
           `${take.id}/frames/frame-03.jpg`, `${take.id}/manifest.txt`,
         ]);

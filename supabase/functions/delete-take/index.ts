@@ -11,16 +11,6 @@ type DeletionReceipt = {
   thumbnail_path: string | null;
 };
 
-async function removeIfPresent(
-  admin: ReturnType<typeof createClient>,
-  bucket: string,
-  paths: string[],
-): Promise<void> {
-  if (paths.length === 0) return;
-  const {error} = await admin.storage.from(bucket).remove(paths);
-  if (error) throw error;
-}
-
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', {headers: corsHeaders});
   if (request.method !== 'POST') return json({error: 'method_not_allowed'}, 405);
@@ -59,14 +49,18 @@ Deno.serve(async (request) => {
   if (!receipt?.take_id) return json({error: 'take_deletion_failed'}, 500);
 
   const admin = createClient(url, serviceKey, {auth: {persistSession: false}});
+  const removeIfPresent = async (bucket: string, paths: string[]): Promise<void> => {
+    if (paths.length === 0) return;
+    const {error} = await admin.storage.from(bucket).remove(paths);
+    if (error) throw error;
+  };
   try {
-    await removeIfPresent(admin, 'takes', receipt.video_path ? [receipt.video_path] : []);
+    await removeIfPresent('takes', receipt.video_path ? [receipt.video_path] : []);
     await removeIfPresent(
-      admin,
       'take-thumbnails',
       receipt.thumbnail_path ? [receipt.thumbnail_path] : [],
     );
-    await removeIfPresent(admin, 'moderation-artifacts', [
+    await removeIfPresent('moderation-artifacts', [
       `${takeId}/frames/frame-01.jpg`,
       `${takeId}/frames/frame-02.jpg`,
       `${takeId}/frames/frame-03.jpg`,
