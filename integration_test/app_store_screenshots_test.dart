@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import 'package:svnly/app/providers.dart';
 import 'package:svnly/app/router.dart';
 import 'package:svnly/app/svnly_app.dart';
 import 'package:svnly/core/design/tokens.dart';
+import 'package:svnly/core/localization/app_strings.dart';
 import 'package:svnly/features/auth/app_repository.dart';
 import 'package:svnly/features/auth/auth_screen.dart';
 import 'package:svnly/features/challenge/home_screen.dart';
@@ -29,6 +31,19 @@ Widget _todayScreen() => Scaffold(
       NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
     ],
   ),
+);
+
+Widget _productScreen(Widget child) => MaterialApp(
+  debugShowCheckedModeBanner: false,
+  theme: buildSvnlyTheme(),
+  supportedLocales: const [Locale('en'), Locale('de')],
+  localizationsDelegates: const [
+    AppStringsDelegate(),
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ],
+  home: child,
 );
 
 void main() {
@@ -134,20 +149,13 @@ void main() {
     await tester.pumpAndSettle();
     await binding.takeScreenshot('04-be-real');
 
-    screen.value = MaterialApp(
-      theme: buildSvnlyTheme(),
-      home: _todayScreen(),
-    );
+    screen.value = _productScreen(_todayScreen());
     await tester.pump();
     await tester.pump(const Duration(seconds: 2));
     await binding.takeScreenshot('05-today-challenge');
 
-    screen.value = MaterialApp(
-      theme: buildSvnlyTheme(),
-      home: const RankingScreen(),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 2));
+    screen.value = _productScreen(const RankingScreen());
+    await tester.pumpAndSettle();
     await binding.takeScreenshot('06-ranking');
   });
 }
