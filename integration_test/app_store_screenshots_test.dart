@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:svnly/app/providers.dart';
 import 'package:svnly/app/router.dart';
 import 'package:svnly/app/svnly_app.dart';
+import 'package:svnly/core/design/tokens.dart';
 import 'package:svnly/features/auth/app_repository.dart';
 import 'package:svnly/features/auth/auth_screen.dart';
 import 'package:svnly/features/challenge/home_screen.dart';
@@ -103,6 +104,8 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
+    final screen = ValueNotifier<Widget>(const SvnlyApp());
+    addTearDown(screen.dispose);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -110,7 +113,10 @@ void main() {
           appRepositoryProvider.overrideWithValue(repository),
           routerProvider.overrideWithValue(router),
         ],
-        child: const SvnlyApp(),
+        child: ValueListenableBuilder<Widget>(
+          valueListenable: screen,
+          builder: (_, value, _) => value,
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -128,12 +134,18 @@ void main() {
     await tester.pumpAndSettle();
     await binding.takeScreenshot('04-be-real');
 
-    router.go('/home');
+    screen.value = MaterialApp(
+      theme: buildSvnlyTheme(),
+      home: _todayScreen(),
+    );
     await tester.pump();
     await tester.pump(const Duration(seconds: 2));
     await binding.takeScreenshot('05-today-challenge');
 
-    router.go('/ranking');
+    screen.value = MaterialApp(
+      theme: buildSvnlyTheme(),
+      home: const RankingScreen(),
+    );
     await tester.pump();
     await tester.pump(const Duration(seconds: 2));
     await binding.takeScreenshot('06-ranking');
