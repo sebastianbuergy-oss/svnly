@@ -129,11 +129,13 @@ void main() {
     await binding.takeScreenshot('04-be-real');
 
     router.go('/home');
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
     await binding.takeScreenshot('05-today-challenge');
 
     router.go('/ranking');
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
     await binding.takeScreenshot('06-ranking');
   });
 }
