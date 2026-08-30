@@ -20,7 +20,9 @@ final class RunnerTests: XCTestCase {
       if case .failure(let error) = result { processingError = error }
       exported.fulfill()
     }
-    wait(for: [exported], timeout: 20)
+    // AVFoundation exports and frame extraction share the simulator's media
+    // services. Give a cold CI simulator enough time to finish the real export.
+    wait(for: [exported], timeout: 60)
     XCTAssertNil(processingError)
     XCTAssertGreaterThan(try Data(contentsOf: output).count, 0)
 

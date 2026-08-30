@@ -303,6 +303,7 @@ workflows:
             -scheme Runner \
             -destination "id=$SIMULATOR_UDID" \
             -derivedDataPath build/ios-native-tests \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO | tee build/test-results/xcodebuild.log
           XCODE_STATUS=${PIPESTATUS[0]}
           if [ "$XCODE_STATUS" -ne 0 ]; then
