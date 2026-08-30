@@ -83,6 +83,7 @@ async function applyMigrations() {
     '202608210006_notification_outbox.sql',
     '202608270010_finalize_unlock_and_retry.sql',
     '202608270011_participation_source_of_truth.sql',
+    '202608300012_build8_feed_compatibility.sql',
   ]) {
     await db.exec(await readFile(join(root, 'supabase', 'migrations', name), 'utf8'));
   }
@@ -113,6 +114,11 @@ async function seedMatrix() {
       ('${ids.bobTake}','${ids.bob}','${ids.challenge}','30000000-0000-4000-8000-000000000002','${ids.bob}/${ids.challenge}/${ids.bobTake}.mp4',7000,1000,'published',now()),
       ('${ids.privateTake}','${ids.privateUser}','${ids.challenge}','30000000-0000-4000-8000-000000000003','${ids.privateUser}/${ids.challenge}/${ids.privateTake}.mp4',7000,1000,'published',now()),
       ('${ids.pendingTake}','${ids.alice}','${ids.tomorrow}','30000000-0000-4000-8000-000000000004',null,7000,1000,'processing',null);
+    insert into public.challenge_participations(user_id,challenge_id,attempt_id,take_id,status,recorded_at,submitted_at,completed_at) values
+      ('${ids.alice}','${ids.challenge}','30000000-0000-4000-8000-000000000001','${ids.aliceTake}','completed',now(),now(),now()),
+      ('${ids.bob}','${ids.challenge}','30000000-0000-4000-8000-000000000002','${ids.bobTake}','completed',now(),now(),now()),
+      ('${ids.privateUser}','${ids.challenge}','30000000-0000-4000-8000-000000000003','${ids.privateTake}','completed',now(),now(),now()),
+      ('${ids.alice}','${ids.tomorrow}','30000000-0000-4000-8000-000000000004','${ids.pendingTake}','uploading',now(),null,null);
     insert into public.notifications(user_id,category,title_key,body_key) values
       ('${ids.alice}','product_news','a','b'),('${ids.bob}','product_news','a','b');
     insert into public.device_tokens(user_id,token_hash,encrypted_token,environment,locale,timezone) values
@@ -164,6 +170,16 @@ test('feed RPC unlocks and applies world/private/friends scope', async () => {
   assert(!worldVisible.has(ids.privateUser), 'private profiles must stay out of world feed');
   const friends = await asUser(ids.alice, "select profile_id from public.get_daily_feed('friends',50,0)");
   assert(new Set(friends.rows.map((row) => row.profile_id)).has(ids.privateUser));
+});
+
+test('Build 8 feed RPC stays read-only and service moderation can read its take', async () => {
+  const definition = await owner(`select pg_get_functiondef('public.get_daily_feed(text,integer,integer)'::regprocedure) body`);
+  assert.doesNotMatch(definition.rows[0].body, /has_valid_take_today|reconcile_today_participation/);
+  const privileges = await owner(`select
+    has_table_privilege('service_role','public.takes','SELECT') takes_select,
+    has_table_privilege('service_role','public.takes','UPDATE') takes_update,
+    has_table_privilege('service_role','public.moderation_queue','SELECT') queue_select`);
+  assert.deepEqual(privileges.rows[0], {takes_select: true, takes_update: true, queue_select: true});
 });
 
 test('notification and APNs token rows are isolated per user', async () => {
@@ -240,6 +256,8 @@ test('recording upload and finalize atomically unlock participation without dupl
   assert.equal((await asUser(user, 'select public.has_valid_take_today() unlocked')).rows[0].unlocked, true);
   const participation = await owner(`select status from public.challenge_participations where user_id='${user}' and challenge_id='${ids.challenge}'`);
   assert.equal(participation.rows[0].status, 'completed');
+  const trace = await owner(`select properties from public.analytics_events where user_id='${user}' and event_name='participation_transition' and properties->>'status'='completed' order by occurred_at desc limit 1`);
+  assert.equal(trace.rows[0].properties.trace_id, attempt);
 });
 
 test('lost finalize response and app termination reconcile uploaded storage into an unlocked take', async () => {
