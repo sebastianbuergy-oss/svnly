@@ -337,6 +337,17 @@ class SupabaseAppRepository implements AppRepository {
   }
 
   @override
+  Future<void> deleteTake(String takeId) async {
+    final response = await _client.functions.invoke(
+      'delete-take',
+      body: {'take_id': takeId},
+    );
+    if (response.status < 200 || response.status >= 300) {
+      throw StateError('Take deletion failed.');
+    }
+  }
+
+  @override
   Future<void> follow(String profileId) async {
     await _client.rpc('follow_profile', params: {'p_profile_id': profileId});
   }

@@ -281,6 +281,7 @@ workflows:
           deno check \
             supabase/functions/register-device/index.ts \
             supabase/functions/send-apns/index.ts \
+            supabase/functions/delete-take/index.ts \
             supabase/functions/moderate-take/index.ts \
             supabase/functions/scheduled-jobs/index.ts
       - name: Boot an available iPhone simulator

@@ -78,4 +78,22 @@ void main() {
     expect(take.viewCount, 19);
     expect(take.isToday, isTrue);
   });
+
+  test('deleted My Take keeps participation but exposes no playable media', () {
+    final take = MyTake.fromJson({
+      'id': null,
+      'challenge_id': 'challenge-7',
+      'challenge_title': 'Show the chaos',
+      'challenge_date': '2026-08-30',
+      'take_status': 'deleted',
+      'participation_status': 'completed',
+      'created_at': '2026-08-30T10:00:00Z',
+      'is_today': true,
+    });
+
+    expect(take.isDeleted, isTrue);
+    expect(take.isPlayable, isFalse);
+    expect(take.displayStatus, 'DELETED');
+    expect(take.participationStatus, 'completed');
+  });
 }

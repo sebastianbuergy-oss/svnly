@@ -4,15 +4,18 @@ SVNLY gives every user the same UTC-based daily video prompt. The camera records
 
 The feed is intentionally locked until the user submits today’s take. This is the normal product for every user, not a reviewer-only restriction. Submission unlock is recorded independently from moderation, so a processing or human-review delay never relocks a completed participant.
 
+Users can delete any of their own takes from the overflow menu in My Take or their profile. This immediately removes the video from public feeds and deletes its private video, thumbnail, reactions and comments. Deleting a submitted take does not restore the daily recording opportunity: the server keeps the completed participation receipt, consistent with the ONE TAKE rule.
+
 The final encoded seven-second video produces three fixed-time moderation frames. The private, immutable frames are checked automatically with OpenAI's Moderation endpoint. Harmless content is published, clear high-confidence violations are rejected/hidden, and borderline cases go to human review. Reports and blocks are available from content/profile actions. Moderators cannot approve their own takes.
 
 ## Review path
 
 1. Sign in with review account B to test profile/challenge/camera. Tap the primary camera action, grant camera/microphone permission and complete the countdown. The recording stops automatically.
 2. After upload/moderation, open Discover and switch Friends/Country/World.
-3. Long-press or use the overflow actions on a take/profile to report or block. Blocking removes both follow directions and immediately hides interaction.
-4. Account deletion: Settings → Privacy & Account → Delete Account → confirm. The profile is disabled immediately and the deletion job starts.
-5. Community Guidelines: Settings → Legal → Community Guidelines, or the public `/community` URL.
+3. On the reviewer's own My Take or profile video, open `•••` → `Take löschen` and confirm. The media disappears immediately; the daily participation remains completed and no retake is offered.
+4. Long-press or use the overflow actions on another take/profile to report or block. Blocking removes both follow directions and immediately hides interaction.
+5. Account deletion: Settings → Privacy & Account → Delete Account → confirm. The profile is disabled immediately and the deletion job starts.
+6. Community Guidelines: Settings → Legal → Community Guidelines, or the public `/community` URL.
 
 SVNLY Plus is not part of this review submission. No in-app purchase should be reviewed until its App Store products, RevenueCat entitlement, purchase and restore paths have passed a signed-device sandbox test.
 

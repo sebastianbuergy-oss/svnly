@@ -40,6 +40,8 @@ const requiredFunctions = <String>{
   'finalize_take',
   'get_daily_feed',
   'get_my_takes',
+  'delete_my_take',
+  'complete_take_media_cleanup',
   'update_my_profile',
   'block_profile',
   'create_report',

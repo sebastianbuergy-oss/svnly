@@ -43,6 +43,15 @@ async function asUser(userId, sql, params = [], role = 'user') {
   }
 }
 
+async function asService(sql, params = []) {
+  await db.exec('reset role; set role service_role');
+  try {
+    return params.length ? await db.query(sql, params) : await db.query(sql);
+  } finally {
+    await db.exec('reset role');
+  }
+}
+
 async function countAs(userId, table, where = 'true', role = 'user') {
   const result = await asUser(userId, `select count(*)::integer count from ${table} where ${where}`, [], role);
   return result.rows[0].count;
@@ -91,6 +100,8 @@ async function applyMigrations() {
     '202608300017_moderation_release_gate.sql',
     '202608300019_client_moderation_frames.sql',
     '202608300020_moderation_queue_cleanup.sql',
+    '202608300021_owner_take_deletion.sql',
+    '202608300022_rankings_lint_fix.sql',
   ]) {
     await db.exec(await readFile(join(root, 'supabase', 'migrations', name), 'utf8'));
   }
@@ -443,4 +454,104 @@ test('avatar upload, replacement, restart persistence and removal are owner-scop
 
   await assert.rejects(() => asUser(ids.bob,
     `select public.update_my_profile('bob.real','Bob','Nope','DE','${firstPath}',false)`));
+});
+
+test('ranking RPC resolves the authenticated country without output-column ambiguity', async () => {
+  const rows = await asUser(ids.alice,
+    "select * from public.get_rankings('today','country',100)");
+  assert(rows.rows.every((row) => row.country_code === 'CH'));
+});
+
+test('owner deletion removes social visibility and media without granting a retake', async () => {
+  const user = '00000000-0000-4000-8000-000000000010';
+  const attempt = '30000000-0000-4000-8000-000000000010';
+  const take = '20000000-0000-4000-8000-000000000010';
+  const videoPath = `${user}/${attempt}/${take}/video.mp4`;
+  const thumbnailPath = `${user}/${take}/thumbnail.jpg`;
+  await owner(`insert into auth.users(id) values('${user}')`);
+  await owner(`insert into public.profiles(id,username,display_name,country_code)
+    values('${user}','delete.user','Delete User','CH')`);
+  await owner(`update public.user_private set age_verified_at=now() where user_id='${user}'`);
+  await owner(`insert into public.terms_acceptances(user_id,document_type,version) values
+    ('${user}','terms','1'),('${user}','privacy','1'),('${user}','guidelines','1')`);
+  await owner(`insert into public.take_attempts(id,user_id,challenge_id,nonce,status,started_at,finalized_at)
+    values('${attempt}','${user}','${ids.challenge}',gen_random_uuid(),'finalized',now(),now())`);
+  await owner(`insert into public.takes(
+      id,user_id,challenge_id,attempt_id,storage_path,thumbnail_path,duration_ms,file_size,status,published_at
+    ) values(
+      '${take}','${user}','${ids.challenge}','${attempt}','${videoPath}','${thumbnailPath}',
+      7000,1000,'published',now()
+    )`);
+  await owner(`insert into public.challenge_participations(
+      user_id,challenge_id,attempt_id,take_id,status,recorded_at,submitted_at,completed_at
+    ) values('${user}','${ids.challenge}','${attempt}','${take}','completed',now(),now(),now())`);
+  await owner(`insert into public.reactions(user_id,take_id,reaction)
+    values('${ids.bob}','${take}','fire')`);
+  await owner(`insert into public.comments(user_id,take_id,body)
+    values('${ids.bob}','${take}','Good take')`);
+  await owner(`insert into public.take_views(take_id,viewer_id,completed)
+    values('${take}','${ids.bob}',true)`);
+  await owner(`insert into public.moderation_queue(target_type,target_id,source)
+    values('take','${take}','automated')`);
+  await owner(`insert into public.notifications(user_id,category,title_key,body_key,data)
+    values('${user}','reaction','reaction_title','reaction_body',jsonb_build_object('take_id','${take}'))`);
+  await owner(`insert into storage.objects(bucket_id,name,owner_id) values
+    ('takes','${videoPath}','${user}'),
+    ('take-thumbnails','${thumbnailPath}','${user}'),
+    ('moderation-artifacts','${take}/frames/frame-01.jpg','${user}'),
+    ('moderation-artifacts','${take}/frames/frame-02.jpg','${user}'),
+    ('moderation-artifacts','${take}/frames/frame-03.jpg','${user}')`);
+
+  await assert.rejects(
+    () => asUser(ids.bob, `select * from public.delete_my_take('${take}')`),
+    /take_not_owned/,
+  );
+
+  const receipt = await asUser(user, `select * from public.delete_my_take('${take}')`);
+  assert.deepEqual(receipt.rows[0], {
+    take_id: take,
+    video_path: videoPath,
+    thumbnail_path: thumbnailPath,
+  });
+  const hidden = await owner(`select status,storage_path,thumbnail_path from public.takes where id='${take}'`);
+  assert.deepEqual(hidden.rows[0], {
+    status: 'deleted', storage_path: videoPath, thumbnail_path: thumbnailPath,
+  });
+  for (const table of ['reactions','comments','take_views','take_metrics']) {
+    assert.equal((await owner(`select count(*)::integer count from public.${table} where take_id='${take}'`)).rows[0].count, 0);
+  }
+  assert.equal((await owner(`select count(*)::integer count from public.moderation_queue
+    where target_type='take' and target_id='${take}'`)).rows[0].count, 0);
+  assert.equal((await owner(`select count(*)::integer count from public.notifications
+    where data->>'take_id'='${take}'`)).rows[0].count, 0);
+
+  const participation = await owner(`select status,take_id from public.challenge_participations
+    where user_id='${user}' and challenge_id='${ids.challenge}'`);
+  assert.deepEqual(participation.rows[0], {status: 'completed', take_id: take});
+  assert.equal((await asUser(user, 'select public.has_valid_take_today() unlocked')).rows[0].unlocked, true);
+  await assert.rejects(() => asUser(user, 'select * from public.issue_take_attempt()'), /take_already_exists/);
+
+  const ownerReceipt = await asUser(user, 'select * from public.get_my_takes(30)');
+  assert.equal(ownerReceipt.rows.length, 1);
+  assert.equal(ownerReceipt.rows[0].id, null);
+  assert.equal(ownerReceipt.rows[0].take_status, 'deleted');
+  assert.equal(ownerReceipt.rows[0].participation_status, 'completed');
+  // A fresh authenticated transaction models a full app restart.
+  const restarted = await asUser(user, 'select * from public.get_my_takes(30)');
+  assert.equal(restarted.rows[0].take_status, 'deleted');
+
+  const feed = await asUser(ids.alice, "select id from public.get_daily_feed('world',50,0)");
+  assert(!feed.rows.some((row) => row.id === take), 'deleted take must disappear from every public feed');
+
+  // The Storage API's service key removes bytes through storage-api; the
+  // database owner models that internal operation in PGlite.
+  await owner(`delete from storage.objects where
+    (bucket_id='takes' and name='${videoPath}') or
+    (bucket_id='take-thumbnails' and name='${thumbnailPath}') or
+    (bucket_id='moderation-artifacts' and name like '${take}/%')`);
+  await asService(`select public.complete_take_media_cleanup('${take}')`);
+  const cleaned = await owner(`select storage_path,thumbnail_path from public.takes where id='${take}'`);
+  assert.deepEqual(cleaned.rows[0], {storage_path: null, thumbnail_path: null});
+  assert.equal((await owner(`select count(*)::integer count from storage.objects
+    where name='${videoPath}' or name='${thumbnailPath}' or name like '${take}/%'`)).rows[0].count, 0);
 });

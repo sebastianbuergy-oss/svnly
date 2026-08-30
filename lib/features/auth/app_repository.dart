@@ -45,6 +45,7 @@ abstract interface class AppRepository {
   Future<void> createComment(String takeId, String body);
   Future<List<CommentItem>> loadComments(String takeId, {int page = 0});
   Future<void> deleteComment(String commentId);
+  Future<void> deleteTake(String takeId);
   Future<void> follow(String profileId);
   Future<void> block(String profileId);
   Future<void> report({
@@ -97,6 +98,8 @@ class UnconfiguredRepository implements AppRepository {
       _missing();
   @override
   Future<void> deleteComment(String commentId) async => _missing();
+  @override
+  Future<void> deleteTake(String takeId) async => _missing();
   @override
   Future<DailyChallenge> currentChallenge() async => _missing();
   @override

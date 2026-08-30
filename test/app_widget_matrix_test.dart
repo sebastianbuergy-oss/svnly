@@ -365,6 +365,85 @@ void main() {
       expect(find.text('21'), findsOneWidget);
     });
 
+    testWidgets('owner can confirm deletion and the UI updates immediately', (
+      tester,
+    ) async {
+      final take = MyTake(
+        id: '20000000-0000-4000-8000-000000000010',
+        challengeId: 'challenge-7',
+        challengeTitle: 'Show the chaos',
+        challengeDate: DateTime.utc(2026, 8, 30),
+        videoUrl: 'https://example.test/take.mp4',
+        status: 'published',
+        participationStatus: 'completed',
+        reactionCount: 7,
+        commentCount: 3,
+        viewCount: 21,
+        createdAt: DateTime.utc(2026, 8, 30, 10),
+        isToday: true,
+      );
+      when(() => repository.deleteTake(any())).thenAnswer((_) async {});
+      var refreshed = false;
+      await tester.pumpWidget(
+        harness(
+          Scaffold(
+            body: SingleChildScrollView(
+              child: MyTakeCard(take: take, onRefresh: () => refreshed = true),
+            ),
+          ),
+          repository,
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey('my_take_menu_20000000-0000-4000-8000-000000000010'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Take löschen'), findsOneWidget);
+      await tester.tap(find.text('Take löschen'));
+      await tester.pumpAndSettle();
+      expect(find.text('Take löschen?'), findsOneWidget);
+      expect(find.textContaining('keinen Retake'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('confirm_delete_take')));
+      await tester.pumpAndSettle();
+
+      verify(
+        () => repository.deleteTake('20000000-0000-4000-8000-000000000010'),
+      ).called(1);
+      expect(refreshed, isTrue);
+      expect(
+        find.text("Take gelöscht. Heute bleibt's bei diesem einen Versuch 👀"),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'deleted participation renders a persistent no-retake receipt',
+      (tester) async {
+        final deleted = MyTake.fromJson({
+          'id': null,
+          'challenge_id': 'challenge-7',
+          'challenge_title': 'Show the chaos',
+          'challenge_date': '2026-08-30',
+          'take_status': 'deleted',
+          'participation_status': 'completed',
+          'created_at': '2026-08-30T10:00:00Z',
+          'is_today': true,
+        });
+        await tester.pumpWidget(harness(MyTakeCard(take: deleted), repository));
+        await tester.pumpAndSettle();
+        expect(find.text('TAKE GELÖSCHT'), findsOneWidget);
+        expect(
+          find.text("Heute bleibt's bei diesem einen Versuch 👀"),
+          findsOneWidget,
+        );
+        expect(find.byIcon(Icons.more_horiz), findsNothing);
+      },
+    );
+
     testWidgets('profile editor persists display identity and bio', (
       tester,
     ) async {

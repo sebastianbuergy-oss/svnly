@@ -146,11 +146,13 @@ class MyTake {
   final bool isToday;
 
   bool get isPlayable => videoUrl?.isNotEmpty == true;
+  bool get isDeleted => status == 'deleted';
   String get displayStatus => switch (status) {
     'published' => 'LIVE',
     'under_review' => 'UNDER REVIEW',
     'processing' => 'PROCESSING',
     'rejected' => 'REVIEWED',
+    'deleted' => 'DELETED',
     _ =>
       participationStatus == 'completed'
           ? 'PROCESSING'
