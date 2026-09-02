@@ -20,7 +20,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _route();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _route();
+    });
   }
 
   Future<void> _route() async {
