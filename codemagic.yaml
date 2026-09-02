@@ -319,10 +319,18 @@ workflows:
           exit "$XCODE_STATUS"
       - name: Onboarding and account integration journey
         script: |
-          xcrun simctl boot "$SIMULATOR_UDID" || true
+          # The preceding native XCTest can occasionally leave CoreSimulator in
+          # a booted-but-unresponsive state. Reset it here so this gate always
+          # exercises a deterministic fresh install instead of hanging before
+          # the Dart test runner connects.
+          xcrun simctl shutdown "$SIMULATOR_UDID" || true
+          xcrun simctl erase "$SIMULATOR_UDID"
+          xcrun simctl boot "$SIMULATOR_UDID"
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
           flutter devices
-          flutter test integration_test/onboarding_auth_journey_test.dart -d "$SIMULATOR_UDID"
+          flutter test integration_test/onboarding_auth_journey_test.dart \
+            -d "$SIMULATOR_UDID" \
+            --timeout 5m
       - name: Capture real app screenshot series from the iOS simulator
         script: |
           xcrun simctl boot "$SIMULATOR_UDID" || true
