@@ -85,7 +85,9 @@ class _NotificationSettingsState
           child: Padding(
             padding: EdgeInsets.all(18),
             child: Text(
-              'SVNLY asks for system notification permission only after you enable a useful category. Your choices are stored per account.',
+              'When you turn on a notification category, iOS shows its system '
+              'permission prompt. You decide whether to allow notifications, '
+              'and your category choices are stored per account.',
             ),
           ),
         ),

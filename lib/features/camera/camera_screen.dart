@@ -13,6 +13,7 @@ import '../../app/providers.dart';
 import '../../core/design/tokens.dart';
 import '../../core/design/effects.dart';
 import '../../core/errors/error_mapper.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/widgets/brand.dart';
 import '../challenge/models.dart';
 import 'camera_policy.dart';
@@ -31,7 +32,17 @@ enum CaptureStage {
 }
 
 class CameraScreen extends ConsumerStatefulWidget {
-  const CameraScreen({super.key});
+  const CameraScreen({
+    this.permissionStatusReader,
+    this.permissionRequester,
+    this.openSettings,
+    super.key,
+  });
+
+  final Future<CapturePermissionState> Function()? permissionStatusReader;
+  final Future<CapturePermissionState> Function()? permissionRequester;
+  final Future<bool> Function()? openSettings;
+
   @override
   ConsumerState<CameraScreen> createState() => _CameraScreenState();
 }
@@ -46,6 +57,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   double progress = 0;
   String look = 'Natural';
   String? errorMessage;
+  bool permissionRecoveryRequired = false;
   TakeAttempt? attempt;
   Timer? progressTimer;
   final stopwatch = Stopwatch();
@@ -80,14 +92,53 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     }
   }
 
-  Future<void> _enableCamera() async {
+  Future<CapturePermissionState> _readPermissionStatus() async {
+    final injected = widget.permissionStatusReader;
+    if (injected != null) return injected();
+    final statuses = await Future.wait([
+      Permission.camera.status,
+      Permission.microphone.status,
+    ]);
+    if (statuses.every((status) => status.isGranted)) {
+      return CapturePermissionState.granted;
+    }
+    if (statuses.any(
+      (status) => status.isPermanentlyDenied || status.isRestricted,
+    )) {
+      return CapturePermissionState.requiresSettings;
+    }
+    return CapturePermissionState.requestable;
+  }
+
+  Future<CapturePermissionState> _requestPermissions() async {
+    final injected = widget.permissionRequester;
+    if (injected != null) return injected();
     final statuses = await [Permission.camera, Permission.microphone].request();
-    if (statuses.values.any((status) => !status.isGranted)) {
-      setState(() {
-        stage = CaptureStage.failed;
-        errorMessage =
-            'Camera and microphone access are required for a direct take.';
-      });
+    return statuses.values.every((status) => status.isGranted)
+        ? CapturePermissionState.granted
+        : CapturePermissionState.requiresSettings;
+  }
+
+  void _showPermissionRecovery() {
+    if (!mounted) return;
+    setState(() {
+      permissionRecoveryRequired = true;
+      stage = CaptureStage.failed;
+      errorMessage = AppStrings.of(context).cameraPermissionDenied;
+    });
+  }
+
+  Future<void> _continueToPermissions() async {
+    final current = await _readPermissionStatus();
+    if (current == CapturePermissionState.requiresSettings) {
+      _showPermissionRecovery();
+      return;
+    }
+    final permissionState = current == CapturePermissionState.granted
+        ? current
+        : await _requestPermissions();
+    if (permissionState != CapturePermissionState.granted) {
+      _showPermissionRecovery();
       return;
     }
     try {
@@ -416,19 +467,18 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         const Icon(Icons.videocam_outlined, size: 64, color: SvnlyColors.lime),
         const SizedBox(height: 24),
         Text(
-          'Your camera. Your moment.',
+          AppStrings.of(context).cameraPermissionTitle,
           style: Theme.of(context).textTheme.headlineLarge,
         ),
         const SizedBox(height: 14),
-        const Text(
-          'SVNLY needs camera and microphone access only when you record. Gallery uploads are never available. Recording starts after 3–2–1 and stops automatically after exactly seven seconds.',
-        ),
+        Text(AppStrings.of(context).cameraPermissionExplanation),
         const SizedBox(height: 24),
         const RuleChips(),
         const Spacer(),
         FilledButton(
-          onPressed: _enableCamera,
-          child: const Text('ENABLE CAMERA & MICROPHONE'),
+          key: const ValueKey('continue_to_camera_permissions'),
+          onPressed: _continueToPermissions,
+          child: Text(AppStrings.of(context).permissionContinue),
         ),
       ],
     ),
@@ -675,7 +725,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         const Icon(Icons.warning_amber, size: 64, color: SvnlyColors.warning),
         const SizedBox(height: 18),
         Text(
-          'Technical interruption',
+          permissionRecoveryRequired
+              ? AppStrings.of(context).cameraPermissionTitle
+              : 'Technical interruption',
           style: Theme.of(context).textTheme.headlineLarge,
         ),
         const SizedBox(height: 12),
@@ -683,15 +735,27 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           errorMessage ?? 'The camera could not complete this take.',
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 12),
-        const Text(
-          'A retry is available only after the server verifies that no valid take was published.',
-          textAlign: TextAlign.center,
-        ),
+        if (permissionRecoveryRequired) ...[
+          const SizedBox(height: 20),
+          OutlinedButton(
+            key: const ValueKey('open_camera_settings'),
+            onPressed: () async {
+              final callback = widget.openSettings ?? openAppSettings;
+              await callback();
+            },
+            child: Text(AppStrings.of(context).openSettings),
+          ),
+        ] else ...[
+          const SizedBox(height: 12),
+          const Text(
+            'A retry is available only after the server verifies that no valid take was published.',
+            textAlign: TextAlign.center,
+          ),
+        ],
         const Spacer(),
         FilledButton(
           onPressed: () => context.pop(),
-          child: const Text('BACK TO TODAY'),
+          child: Text(AppStrings.of(context).backToToday),
         ),
       ],
     ),

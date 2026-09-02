@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 const double naturalCameraZoom = 1.0;
 
+enum CapturePermissionState { granted, requestable, requiresSettings }
+
 int naturalCameraIndex(
   List<CameraDescription> cameras,
   CameraLensDirection direction,
