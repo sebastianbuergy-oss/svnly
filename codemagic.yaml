@@ -333,7 +333,11 @@ workflows:
             --timeout 5m
       - name: Capture real app screenshot series from the iOS simulator
         script: |
-          xcrun simctl boot "$SIMULATOR_UDID" || true
+          # The integration test runner must not inherit the app/process state
+          # left by the preceding onboarding journey.
+          xcrun simctl shutdown "$SIMULATOR_UDID" || true
+          xcrun simctl erase "$SIMULATOR_UDID"
+          xcrun simctl boot "$SIMULATOR_UDID"
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
           flutter devices
           mkdir -p build/ios-simulator/screenshots
